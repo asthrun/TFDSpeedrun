@@ -301,13 +301,39 @@ export function RunBoard({
   }, [nextSection, reset, settingsState, split, start, stop, undo]);
 
   function toggleSetting(
-    key: "show_best_of" | "show_sum_of_best" | "show_pb_delta" | "show_section_delta" | "compare_mode",
-    value: boolean | "pb" | "target",
-  ) {
-    const next = { ...settingsState, [key]: value } as UserSettings;
-    setSettingsState(next);
-    void updateSettings({ [key]: value });
-  }
+      key:
+        | "show_best_of"
+        | "show_sum_of_best"
+        | "show_pb_delta"
+        | "show_section_delta"
+        | "compare_mode",
+      value: boolean | "pb" | "target",
+    ) {
+      const previous = settingsState;
+      const next = { ...settingsState, [key]: value } as UserSettings;
+
+      setSettingsState(next);
+
+      void (async () => {
+        try {
+          const result = await updateSettings({ [key]: value });
+
+          if (result.error) {
+            setSettingsState(previous);
+            setSaveStatus("error");
+            setSaveError(result.error);
+          }
+        } catch (error) {
+          console.error("Unexpected error while updating timer setting:", error);
+
+          setSettingsState(previous);
+          setSaveStatus("error");
+          setSaveError(
+            "We couldn't save your settings. Please try again."
+          );
+        }
+      })();
+    }
 
   const valid = live ? isRunValid(live.splits, sections.length) && live.status === "stopped" : false;
   const background = overlay
