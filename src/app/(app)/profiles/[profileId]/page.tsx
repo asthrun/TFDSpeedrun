@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
-  createCategory,
   deleteGameProfile,
   renameGameProfile,
 } from "@/app/actions/catalog";
+import CreateCategoryForm from "@/components/CreateCategoryForm";
 import { requireUser } from "@/lib/auth";
 import { formatTime } from "@/lib/format-time";
 
@@ -46,23 +46,8 @@ export default async function ProfilePage({
       </form>
 
       <h2 className="mt-8 text-lg font-medium">Categories</h2>
-      <form action={createCategory.bind(null, profile.id)} className="mt-3 grid gap-2 sm:grid-cols-[1fr_10rem_auto]">
-        <input
-          name="name"
-          required
-          placeholder='e.g. Onslaught 4'
-          className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"
-        />
-        <input
-          name="target_time"
-          placeholder="mm:ss.SSS"
-          className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 font-mono"
-        />
-        <button type="submit" className="rounded-lg bg-zinc-100 px-4 py-2 font-medium text-zinc-950">
-          Add
-        </button>
-      </form>
-      <p className="mt-1 text-xs text-zinc-500">Target time is optional (world record / compare-to).</p>
+        
+        <CreateCategoryForm profileId={profile.id} />
 
       <ul className="mt-4 space-y-2">
         {(categories ?? []).map((category) => (

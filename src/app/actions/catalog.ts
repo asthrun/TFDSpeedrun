@@ -88,17 +88,46 @@ export async function deleteGameProfile(profileId: string) {
   redirect("/dashboard");
 }
 
-export async function createCategory(profileId: string, formData: FormData) {
+export async function createCategory(
+  profileId: string,
+  _previousState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
   const { supabase, user } = await requireUser();
+
   const name = String(formData.get("name") ?? "").trim();
   const targetRaw = String(formData.get("target_time") ?? "").trim();
-  if (!name) throw new Error("Name is required.");
+
+  if (!name) {
+    return {
+      error: "Please enter a name for the Category.",
+    };
+  }
+
+  if (!/[\p{L}\p{N}]/u.test(name)) {
+    return {
+      error: "The Category name must contain at least one letter or number.",
+    };
+  }
+
+  if (name.length > 50) {
+    return {
+      error: "The Category name cannot be longer than 50 characters.",
+    };
+  }
 
   let target_time_ms: number | null = null;
+
   if (targetRaw) {
     const { parseTimeInput } = await import("@/lib/format-time");
+
     target_time_ms = parseTimeInput(targetRaw);
-    if (target_time_ms == null) throw new Error("Target time must look like mm:ss.SSS");
+
+    if (target_time_ms == null) {
+      return {
+        error: "Please enter the target time as mm:ss.SSS.",
+      };
+    }
   }
 
   const { data, error } = await supabase
@@ -111,7 +140,15 @@ export async function createCategory(profileId: string, formData: FormData) {
     })
     .select("id")
     .single();
-  if (error) throw new Error(error.message);
+
+  if (error) {
+    console.error("Failed to create Category:", error);
+
+    return {
+      error: "We couldn't create the Category. Please try again.",
+    };
+  }
+
   revalidatePath(`/profiles/${profileId}`);
   redirect(`/categories/${data.id}`);
 }
