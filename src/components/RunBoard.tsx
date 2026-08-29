@@ -166,8 +166,13 @@ export function RunBoard({
       setLive(next);
 
       if (next) {
-        queuePersist(next);
+      queuePersist(next);
       } else {
+        if (persistTimer.current) {
+          window.clearTimeout(persistTimer.current);
+          persistTimer.current = null;
+        }
+
         clearLiveRun(category.id);
 
         if (previous?.runId) {
@@ -196,20 +201,23 @@ export function RunBoard({
   const targetSegment = evenSplitTarget(category.target_time_ms, sections.length);
 
   const start = useCallback(() => {
-    if (sections.length === 0) return;
-    if (live) {
-      void persistRun({ ...live, status: "stopped" });
-    }
-    const next: LiveRunState = {
-      runId: null,
-      categoryId: category.id,
-      startedAt: Date.now(),
-      status: "running",
-      currentSectionIndex: 0,
-      splits: Array(sections.length).fill(null),
-    };
+  if (sections.length === 0) return;
+
+  if (live) {
+    void persistRun({ ...live, status: "stopped" });
+  }
+
+  const next: LiveRunState = {
+    runId: null,
+    categoryId: category.id,
+    startedAt: Date.now(),
+    status: "running",
+    currentSectionIndex: 0,
+    splits: Array(sections.length).fill(null),
+  };
+
     commit(next, live);
-  }, [category.id, commit, live, sections.length]);
+  }, [category.id, commit, live, persistRun, sections.length]);
 
   const split = useCallback(() => {
     if (!live || live.status !== "running") return;
@@ -263,9 +271,9 @@ export function RunBoard({
     setLive(previous);
 
     if (previous) {
-    queuePersist(previous);
+      queuePersist(previous);
     } else {
-    clearLiveRun(category.id);
+      clearLiveRun(category.id);
     }
 
     if (discarded?.runId && discarded.runId !== previous?.runId) { void abandonSavedRun(discarded.runId); } }, [abandonSavedRun, category.id, live, queuePersist]);
