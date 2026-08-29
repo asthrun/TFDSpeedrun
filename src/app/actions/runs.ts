@@ -3,6 +3,7 @@
 import { requireUser } from "@/lib/auth";
 import { isRunValid, type LiveRunState } from "@/lib/live-run";
 import { revalidatePath } from "next/cache";
+import type { ActionState } from "@/lib/action-state";
 
 export async function persistLiveRun(
   state: LiveRunState,
@@ -154,10 +155,32 @@ export async function abandonRun(
   };
 }
 
-export async function deleteRun(runId: string, categoryId: string) {
-  const { supabase, user } = await requireUser();
-  const { error } = await supabase.from("runs").delete().eq("id", runId).eq("user_id", user.id);
-  if (error) throw new Error(error.message);
-  revalidatePath(`/categories/${categoryId}/history`);
-  revalidatePath(`/categories/${categoryId}`);
+export async function deleteRun(
+  runId: string,
+  categoryId: string,
+  _previousState: ActionState,
+  _formData: FormData
+  ): Promise<ActionState> {
+    const { supabase, user } = await requireUser();
+
+    const { error } = await supabase
+      .from("runs")
+      .delete()
+      .eq("id", runId)
+      .eq("user_id", user.id);
+
+    if (error) {
+      console.error("Failed to delete run:", error);
+
+      return {
+        error: "We couldn't delete this run. Please try again.",
+      };
+    }
+
+    revalidatePath(`/categories/${categoryId}/history`);
+    revalidatePath(`/categories/${categoryId}`);
+
+    return {
+      error: null,
+    };
 }
