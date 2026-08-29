@@ -37,6 +37,15 @@ export function RunBoard({
   const [live, setLive] = useState<LiveRunState | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [settingsState, setSettingsState] = useState(settings);
+  const [saveStatus, setSaveStatus] = useState<
+  "idle" | "saving" | "saved" | "error"
+>("idle");
+
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const [failedAbandonRunId, setFailedAbandonRunId] = useState<string | null>(
+    null
+  );
   const undoStack = useRef<(LiveRunState | null)[]>([]);
   const persistTimer = useRef<number | null>(null);
 
@@ -54,38 +63,121 @@ export function RunBoard({
     return () => cancelAnimationFrame(frame);
   }, []);
 
+  const persistRun = useCallback(
+  async (state: LiveRunState) => {
+    setSaveStatus("saving");
+    setSaveError(null);
+
+    try {
+      const result = await persistLiveRun(state, sections.length);
+
+      if (result.error) {
+        setSaveStatus("error");
+        setSaveError(result.error);
+        return result;
+      }
+
+      setSaveStatus("saved");
+      setSaveError(null);
+
+      return result;
+    } catch (error) {
+      console.error("Unexpected error while saving run:", error);
+
+      const message = "Your run could not be saved. Please try again.";
+
+      setSaveStatus("error");
+      setSaveError(message);
+
+      return {
+        error: message,
+        runId: state.runId,
+      };
+    }
+  },
+  [sections.length]
+);
+
   const queuePersist = useCallback(
-    (state: LiveRunState) => {
-      writeLiveRun(state);
-      if (persistTimer.current) window.clearTimeout(persistTimer.current);
-      persistTimer.current = window.setTimeout(() => {
-        void persistLiveRun(state, sections.length).then((result) => {
-          if (result.runId && result.runId !== state.runId) {
-            const next = { ...state, runId: result.runId };
-            writeLiveRun(next);
-            setLive((current) =>
-              current && current.startedAt === state.startedAt ? next : current,
-            );
-          }
-        });
-      }, 250);
+  (state: LiveRunState) => {
+    writeLiveRun(state);
+
+    if (persistTimer.current) {
+      window.clearTimeout(persistTimer.current);
+    }
+
+    persistTimer.current = window.setTimeout(() => {
+      void persistRun(state).then((result) => {
+        if (result.runId && result.runId !== state.runId) {
+          const next = {
+            ...state,
+            runId: result.runId,
+          };
+
+          writeLiveRun(next);
+
+          setLive((current) =>
+            current && current.startedAt === state.startedAt
+              ? next
+              : current
+          );
+        }
+      });
+    }, 250);
+  },
+  [persistRun]
+);
+
+  const abandonSavedRun = useCallback(
+    async (runId: string) => {
+      try {
+        const result = await abandonRun(runId, category.id);
+
+        if (result.error) {
+          setSaveStatus("error");
+          setSaveError(result.error);
+          setFailedAbandonRunId(runId);
+
+          return false;
+        }
+
+        setFailedAbandonRunId(null);
+
+        return true;
+      } catch (error) {
+        console.error("Unexpected error while abandoning run:", error);
+
+        setSaveStatus("error");
+        setSaveError(
+          "The timer was reset, but the saved run could not be removed."
+        );
+        setFailedAbandonRunId(runId);
+
+        return false;
+      }
     },
-    [sections.length],
+    [category.id]
   );
 
   const commit = useCallback(
-    (next: LiveRunState | null, previous: LiveRunState | null) => {
+      (next: LiveRunState | null, previous: LiveRunState | null) => {
       undoStack.current.push(previous ? structuredClone(previous) : null);
+
       setLive(next);
+
       if (next) {
         queuePersist(next);
       } else {
         clearLiveRun(category.id);
-        if (previous?.runId) void abandonRun(previous.runId, category.id);
+
+        if (previous?.runId) {
+          void abandonSavedRun(previous.runId);
+        }
       }
-    },
-    [category.id, queuePersist],
-  );
+
+      },
+      [abandonSavedRun, category.id, queuePersist],
+      );
 
   const elapsedMs = live
     ? live.status === "running"
@@ -106,7 +198,7 @@ export function RunBoard({
   const start = useCallback(() => {
     if (sections.length === 0) return;
     if (live) {
-      void persistLiveRun({ ...live, status: "stopped" }, sections.length);
+      void persistRun({ ...live, status: "stopped" });
     }
     const next: LiveRunState = {
       runId: null,
@@ -135,7 +227,7 @@ export function RunBoard({
     };
     commit(next, live);
     if (done) {
-      void persistLiveRun(next, sections.length);
+      void persistRun(next);
     }
   }, [commit, currentSegmentMs, live, sections]);
 
@@ -163,18 +255,20 @@ export function RunBoard({
 
   const undo = useCallback(() => {
     const previous = undoStack.current.pop();
+
     if (previous === undefined) return;
+
     const discarded = live;
+
     setLive(previous);
+
     if (previous) {
-      queuePersist(previous);
+    queuePersist(previous);
     } else {
-      clearLiveRun(category.id);
+    clearLiveRun(category.id);
     }
-    if (discarded?.runId && discarded.runId !== previous?.runId) {
-      void abandonRun(discarded.runId, category.id);
-    }
-  }, [category.id, live, queuePersist]);
+
+    if (discarded?.runId && discarded.runId !== previous?.runId) { void abandonSavedRun(discarded.runId); } }, [abandonSavedRun, category.id, live, queuePersist]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -242,7 +336,46 @@ export function RunBoard({
             </div>
           </div>
         </div>
+          {!overlay && saveStatus !== "idle" && (
+                    <div className="mt-2 text-right text-xs">
+                      {saveStatus === "saving" && (
+                        <span className="text-zinc-400">Saving...</span>
+                      )}
 
+                      {saveStatus === "saved" && (
+                        <span className="text-zinc-400">Saved</span>
+                      )}
+
+                      {saveStatus === "error" && (
+                      <div role="alert" className="space-y-2 text-red-400">
+                        <p>
+                          {saveError ?? "Your run could not be saved."}
+                        </p>
+
+                        {failedAbandonRunId && (
+                          <div className="flex justify-end gap-3">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                void abandonSavedRun(failedAbandonRunId);
+                              }}
+                              className="underline underline-offset-2 hover:text-red-300"
+                            >
+                              Retry
+                            </button>
+
+                            <a
+                              href={`/categories/${category.id}/history?highlight=${failedAbandonRunId}`}
+                              className="underline underline-offset-2 hover:text-red-300"
+                            >
+                              Open Run History
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    </div>
+          )}
         {settingsState.show_sum_of_best && (
           <div className="mt-2 text-[0.85em] text-zinc-300">
             Sum of Best: {sob == null ? "—" : formatTime(sob)}
