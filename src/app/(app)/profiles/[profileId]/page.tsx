@@ -1,12 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import {
-  deleteGameProfile,
-  renameGameProfile,
-} from "@/app/actions/catalog";
 import CreateCategoryForm from "@/components/CreateCategoryForm";
+import RenameGameProfileForm from "@/components/RenameGameProfileForm";
 import { requireUser } from "@/lib/auth";
 import { formatTime } from "@/lib/format-time";
+import DeleteGameProfileForm from "@/components/DeleteGameProfileForm";
 
 export default async function ProfilePage({
   params,
@@ -34,16 +32,10 @@ export default async function ProfilePage({
       <Link href="/dashboard" className="text-sm text-zinc-400 hover:text-white">
         ← Dashboard
       </Link>
-      <form action={renameGameProfile.bind(null, profile.id)} className="mt-4 flex gap-2">
-        <input
-          name="name"
-          defaultValue={profile.name}
-          className="flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-xl font-semibold"
-        />
-        <button type="submit" className="rounded-lg border border-zinc-700 px-3">
-          Rename
-        </button>
-      </form>
+      <RenameGameProfileForm
+        profileId={profile.id}
+        currentName={profile.name}
+      />
 
       <h2 className="mt-8 text-lg font-medium">Categories</h2>
         
@@ -64,11 +56,7 @@ export default async function ProfilePage({
         ))}
       </ul>
 
-      <form action={deleteGameProfile.bind(null, profile.id)} className="mt-10">
-        <button type="submit" className="text-sm text-red-400 hover:text-red-300">
-          Delete this game profile
-        </button>
-      </form>
+      <DeleteGameProfileForm profileId={profile.id} />
     </main>
   );
 }

@@ -21,12 +21,6 @@ export async function createGameProfile(
     };
   }
 
-  if (!name) {
-    return {
-      error: "Please enter a name for your GameProfile.",
-    };
-  }
-
   if (!/[\p{L}\p{N}]/u.test(name)) {
     return {
       error: "The GameProfile name must contain at least one letter or number.",
@@ -62,28 +56,76 @@ export async function createGameProfile(
   redirect(`/profiles/${data.id}`);
 }
 
-export async function renameGameProfile(profileId: string, formData: FormData) {
+export async function renameGameProfile(
+  profileId: string,
+  _previousState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
   const { supabase, user } = await requireUser();
+
   const name = String(formData.get("name") ?? "").trim();
-  if (!name) throw new Error("Name is required.");
+
+  if (!name) {
+    return {
+      error: "Please enter a name for your GameProfile.",
+    };
+  }
+
+  if (!/[\p{L}\p{N}]/u.test(name)) {
+    return {
+      error: "The GameProfile name must contain at least one letter or number.",
+    };
+  }
+
+  if (name.length > 50) {
+    return {
+      error: "The GameProfile name cannot be longer than 50 characters.",
+    };
+  }
+
   const { error } = await supabase
     .from("game_profiles")
     .update({ name })
     .eq("id", profileId)
     .eq("user_id", user.id);
-  if (error) throw new Error(error.message);
+
+  if (error) {
+    console.error("Failed to rename GameProfile:", error);
+
+    return {
+      error: "We couldn't rename your GameProfile. Please try again.",
+    };
+  }
+
   revalidatePath("/dashboard");
   revalidatePath(`/profiles/${profileId}`);
+
+  return {
+    error: null,
+  };
 }
 
-export async function deleteGameProfile(profileId: string) {
+export async function deleteGameProfile(
+  profileId: string,
+  _previousState: ActionState,
+  _formData: FormData
+): Promise<ActionState> {
   const { supabase, user } = await requireUser();
+
   const { error } = await supabase
     .from("game_profiles")
     .delete()
     .eq("id", profileId)
     .eq("user_id", user.id);
-  if (error) throw new Error(error.message);
+
+  if (error) {
+    console.error("Failed to delete GameProfile:", error);
+
+    return {
+      error: "We couldn't delete this GameProfile. Please try again.",
+    };
+  }
+
   revalidatePath("/dashboard");
   redirect("/dashboard");
 }
@@ -153,45 +195,125 @@ export async function createCategory(
   redirect(`/categories/${data.id}`);
 }
 
-export async function updateCategory(categoryId: string, formData: FormData) {
+export async function updateCategory(
+  categoryId: string,
+  _previousState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
   const { supabase, user } = await requireUser();
+
   const name = String(formData.get("name") ?? "").trim();
   const targetRaw = String(formData.get("target_time") ?? "").trim();
-  if (!name) throw new Error("Name is required.");
+
+  if (!name) {
+    return {
+      error: "Please enter a name for the Category.",
+    };
+  }
+
+  if (!/[\p{L}\p{N}]/u.test(name)) {
+    return {
+      error: "The Category name must contain at least one letter or number.",
+    };
+  }
+
+  if (name.length > 50) {
+    return {
+      error: "The Category name cannot be longer than 50 characters.",
+    };
+  }
 
   let target_time_ms: number | null = null;
+
   if (targetRaw) {
     const { parseTimeInput } = await import("@/lib/format-time");
+
     target_time_ms = parseTimeInput(targetRaw);
-    if (target_time_ms == null) throw new Error("Target time must look like mm:ss.SSS");
+
+    if (target_time_ms == null) {
+      return {
+        error: "Please enter the target time as mm:ss.SSS.",
+      };
+    }
   }
 
   const { error } = await supabase
     .from("categories")
-    .update({ name, target_time_ms })
+    .update({
+      name,
+      target_time_ms,
+    })
     .eq("id", categoryId)
     .eq("user_id", user.id);
-  if (error) throw new Error(error.message);
+
+  if (error) {
+    console.error("Failed to update Category:", error);
+
+    return {
+      error: "We couldn't save the Category. Please try again.",
+    };
+  }
+
   revalidatePath(`/categories/${categoryId}`);
   revalidatePath(`/categories/${categoryId}/setup`);
+
+  return {
+    error: null,
+  };
 }
 
-export async function deleteCategory(categoryId: string, profileId: string) {
+export async function deleteCategory(
+  categoryId: string,
+  profileId: string,
+  _previousState: ActionState,
+  _formData: FormData
+): Promise<ActionState> {
   const { supabase, user } = await requireUser();
+
   const { error } = await supabase
     .from("categories")
     .delete()
     .eq("id", categoryId)
     .eq("user_id", user.id);
-  if (error) throw new Error(error.message);
+
+  if (error) {
+    console.error("Failed to delete Category:", error);
+
+    return {
+      error: "We couldn't delete this Category. Please try again.",
+    };
+  }
+
   revalidatePath(`/profiles/${profileId}`);
   redirect(`/profiles/${profileId}`);
 }
 
-export async function addSection(categoryId: string, formData: FormData) {
+export async function addSection(
+  categoryId: string,
+  _previousState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
   const { supabase, user } = await requireUser();
+
   const name = String(formData.get("name") ?? "").trim();
-  if (!name) throw new Error("Name is required.");
+
+  if (!name) {
+    return {
+      error: "Please enter a Section name.",
+    };
+  }
+
+  if (!/[\p{L}\p{N}]/u.test(name)) {
+    return {
+      error: "The Section name must contain at least one letter or number.",
+    };
+  }
+
+  if (name.length > 50) {
+    return {
+      error: "The Section name cannot be longer than 50 characters.",
+    };
+  }
 
   const { data: existing, error: listError } = await supabase
     .from("sections")
@@ -199,7 +321,15 @@ export async function addSection(categoryId: string, formData: FormData) {
     .eq("category_id", categoryId)
     .order("sort_order", { ascending: false })
     .limit(1);
-  if (listError) throw new Error(listError.message);
+
+  if (listError) {
+    console.error("Failed to determine Section order:", listError);
+
+    return {
+      error: "We couldn't add the Section. Please try again.",
+    };
+  }
+
   const sort_order = (existing?.[0]?.sort_order ?? -1) + 1;
 
   const { error } = await supabase.from("sections").insert({
@@ -208,23 +338,71 @@ export async function addSection(categoryId: string, formData: FormData) {
     name,
     sort_order,
   });
-  if (error) throw new Error(error.message);
+
+  if (error) {
+    console.error("Failed to add Section:", error);
+
+    return {
+      error: "We couldn't add the Section. Please try again.",
+    };
+  }
+
   revalidatePath(`/categories/${categoryId}`);
   revalidatePath(`/categories/${categoryId}/setup`);
+
+  return {
+    error: null,
+  };
 }
 
-export async function renameSection(sectionId: string, categoryId: string, formData: FormData) {
+export async function renameSection(
+  sectionId: string,
+  categoryId: string,
+  _previousState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
   const { supabase, user } = await requireUser();
+
   const name = String(formData.get("name") ?? "").trim();
-  if (!name) throw new Error("Name is required.");
+
+  if (!name) {
+    return {
+      error: "Please enter a Section name.",
+    };
+  }
+
+  if (!/[\p{L}\p{N}]/u.test(name)) {
+    return {
+      error: "The Section name must contain at least one letter or number.",
+    };
+  }
+
+  if (name.length > 50) {
+    return {
+      error: "The Section name cannot be longer than 50 characters.",
+    };
+  }
+
   const { error } = await supabase
     .from("sections")
     .update({ name })
     .eq("id", sectionId)
     .eq("user_id", user.id);
-  if (error) throw new Error(error.message);
+
+  if (error) {
+    console.error("Failed to rename Section:", error);
+
+    return {
+      error: "We couldn't rename the Section. Please try again.",
+    };
+  }
+
   revalidatePath(`/categories/${categoryId}`);
   revalidatePath(`/categories/${categoryId}/setup`);
+
+  return {
+    error: null,
+  };
 }
 
 export async function signOut() {
