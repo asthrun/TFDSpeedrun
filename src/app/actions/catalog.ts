@@ -274,7 +274,8 @@ export async function deleteCategory(
     .from("categories")
     .delete()
     .eq("id", categoryId)
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .eq("game_profile_id", profileId);
 
   if (error) {
     console.error("Failed to delete Category:", error);
@@ -383,11 +384,12 @@ export async function renameSection(
     };
   }
 
-  const { error } = await supabase
+ const { error } = await supabase
     .from("sections")
     .update({ name })
     .eq("id", sectionId)
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .eq("category_id", categoryId);
 
   if (error) {
     console.error("Failed to rename Section:", error);

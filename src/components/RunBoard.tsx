@@ -69,7 +69,7 @@ export function RunBoard({
     setSaveError(null);
 
     try {
-      const result = await persistLiveRun(state, sections.length);
+      const result = await persistLiveRun(state);
 
       if (result.error) {
         setSaveStatus("error");
@@ -95,7 +95,7 @@ export function RunBoard({
       };
     }
   },
-  [sections.length]
+  []
 );
 
   const queuePersist = useCallback(

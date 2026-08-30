@@ -97,71 +97,258 @@ create index runs_user_category_idx on public.runs (user_id, category_id, starte
 create index run_splits_user_id_idx on public.run_splits (user_id);
 create index share_sessions_token_idx on public.share_sessions (token);
 
-alter table public.user_settings enable row level security;
-alter table public.game_profiles enable row level security;
-alter table public.categories enable row level security;
-alter table public.sections enable row level security;
-alter table public.runs enable row level security;
-alter table public.run_splits enable row level security;
-alter table public.share_sessions enable row level security;
+alter table public.game_profiles
+  add constraint game_profiles_id_user_id_key
+  unique (id, user_id);
 
-create policy "user_settings_select" on public.user_settings for select using (auth.uid() = user_id);
-create policy "user_settings_insert" on public.user_settings for insert with check (auth.uid() = user_id);
-create policy "user_settings_update" on public.user_settings for update using (auth.uid() = user_id);
+alter table public.categories
+  add constraint categories_id_user_id_key
+  unique (id, user_id);
 
-create policy "game_profiles_select" on public.game_profiles for select using (auth.uid() = user_id);
-create policy "game_profiles_insert" on public.game_profiles for insert with check (auth.uid() = user_id);
-create policy "game_profiles_update" on public.game_profiles for update using (auth.uid() = user_id);
-create policy "game_profiles_delete" on public.game_profiles for delete using (auth.uid() = user_id);
+alter table public.runs
+  add constraint runs_id_user_id_key
+  unique (id, user_id);
 
-create policy "categories_select" on public.categories for select using (auth.uid() = user_id);
-create policy "categories_insert" on public.categories for insert with check (
+alter table public.sections
+  add constraint sections_id_user_id_key
+  unique (id, user_id);
+
+
+alter table public.categories
+  add constraint categories_profile_user_fkey
+  foreign key (game_profile_id, user_id)
+  references public.game_profiles (id, user_id)
+  on delete cascade;
+
+alter table public.sections
+  add constraint sections_category_user_fkey
+  foreign key (category_id, user_id)
+  references public.categories (id, user_id)
+  on delete cascade;
+
+alter table public.runs
+  add constraint runs_category_user_fkey
+  foreign key (category_id, user_id)
+  references public.categories (id, user_id)
+  on delete cascade;
+
+alter table public.run_splits
+  add constraint run_splits_run_user_fkey
+  foreign key (run_id, user_id)
+  references public.runs (id, user_id)
+  on delete cascade;
+
+alter table public.run_splits
+  add constraint run_splits_section_user_fkey
+  foreign key (section_id, user_id)
+  references public.sections (id, user_id)
+  on delete cascade;
+
+create policy "user_settings_select"
+on public.user_settings
+for select
+using (auth.uid() = user_id);
+
+create policy "user_settings_insert"
+on public.user_settings
+for insert
+with check (auth.uid() = user_id);
+
+create policy "user_settings_update"
+on public.user_settings
+for update
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+
+create policy "game_profiles_select"
+on public.game_profiles
+for select
+using (auth.uid() = user_id);
+
+create policy "game_profiles_insert"
+on public.game_profiles
+for insert
+with check (auth.uid() = user_id);
+
+create policy "game_profiles_update"
+on public.game_profiles
+for update
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+create policy "game_profiles_delete"
+on public.game_profiles
+for delete
+using (auth.uid() = user_id);
+
+
+create policy "categories_select"
+on public.categories
+for select
+using (auth.uid() = user_id);
+
+create policy "categories_insert"
+on public.categories
+for insert
+with check (
   auth.uid() = user_id
   and exists (
-    select 1 from public.game_profiles g
-    where g.id = game_profile_id and g.user_id = auth.uid()
+    select 1
+    from public.game_profiles gp
+    where gp.id = game_profile_id
+      and gp.user_id = auth.uid()
   )
 );
-create policy "categories_update" on public.categories for update using (auth.uid() = user_id);
-create policy "categories_delete" on public.categories for delete using (auth.uid() = user_id);
 
-create policy "sections_select" on public.sections for select using (auth.uid() = user_id);
-create policy "sections_insert" on public.sections for insert with check (
+create policy "categories_update"
+on public.categories
+for update
+using (
+  auth.uid() = user_id
+)
+with check (
   auth.uid() = user_id
   and exists (
-    select 1 from public.categories c
-    where c.id = category_id and c.user_id = auth.uid()
+    select 1
+    from public.game_profiles gp
+    where gp.id = game_profile_id
+      and gp.user_id = auth.uid()
   )
 );
-create policy "sections_update" on public.sections for update using (auth.uid() = user_id);
-create policy "sections_delete" on public.sections for delete using (auth.uid() = user_id);
 
-create policy "runs_select" on public.runs for select using (auth.uid() = user_id);
-create policy "runs_insert" on public.runs for insert with check (
+create policy "categories_delete"
+on public.categories
+for delete
+using (auth.uid() = user_id);
+
+
+create policy "sections_select"
+on public.sections
+for select
+using (auth.uid() = user_id);
+
+create policy "sections_insert"
+on public.sections
+for insert
+with check (
   auth.uid() = user_id
   and exists (
-    select 1 from public.categories c
-    where c.id = category_id and c.user_id = auth.uid()
+    select 1
+    from public.categories c
+    where c.id = category_id
+      and c.user_id = auth.uid()
   )
 );
-create policy "runs_update" on public.runs for update using (auth.uid() = user_id);
-create policy "runs_delete" on public.runs for delete using (auth.uid() = user_id);
 
-create policy "run_splits_select" on public.run_splits for select using (auth.uid() = user_id);
-create policy "run_splits_insert" on public.run_splits for insert with check (
+create policy "sections_update"
+on public.sections
+for update
+using (
+  auth.uid() = user_id
+)
+with check (
   auth.uid() = user_id
   and exists (
-    select 1 from public.runs r
-    where r.id = run_id and r.user_id = auth.uid()
+    select 1
+    from public.categories c
+    where c.id = category_id
+      and c.user_id = auth.uid()
   )
 );
-create policy "run_splits_update" on public.run_splits for update using (auth.uid() = user_id);
-create policy "run_splits_delete" on public.run_splits for delete using (auth.uid() = user_id);
 
-create policy "share_sessions_select" on public.share_sessions for select using (auth.uid() = user_id);
-create policy "share_sessions_insert" on public.share_sessions for insert with check (auth.uid() = user_id);
-create policy "share_sessions_update" on public.share_sessions for update using (auth.uid() = user_id);
-create policy "share_sessions_delete" on public.share_sessions for delete using (auth.uid() = user_id);
+create policy "sections_delete"
+on public.sections
+for delete
+using (auth.uid() = user_id);
+
+
+create policy "runs_select"
+on public.runs
+for select
+using (auth.uid() = user_id);
+
+create policy "runs_insert"
+on public.runs
+for insert
+with check (
+  auth.uid() = user_id
+  and exists (
+    select 1
+    from public.categories c
+    where c.id = category_id
+      and c.user_id = auth.uid()
+  )
+);
+
+create policy "runs_update"
+on public.runs
+for update
+using (
+  auth.uid() = user_id
+)
+with check (
+  auth.uid() = user_id
+  and exists (
+    select 1
+    from public.categories c
+    where c.id = category_id
+      and c.user_id = auth.uid()
+  )
+);
+
+create policy "runs_delete"
+on public.runs
+for delete
+using (auth.uid() = user_id);
+
+
+create policy "run_splits_select"
+on public.run_splits
+for select
+using (auth.uid() = user_id);
+
+create policy "run_splits_insert"
+on public.run_splits
+for insert
+with check (
+  auth.uid() = user_id
+  and exists (
+    select 1
+    from public.runs r
+    join public.sections s
+      on s.id = section_id
+    where r.id = run_id
+      and r.user_id = auth.uid()
+      and s.user_id = auth.uid()
+      and r.category_id = s.category_id
+  )
+);
+
+create policy "run_splits_update"
+on public.run_splits
+for update
+using (
+  auth.uid() = user_id
+)
+with check (
+  auth.uid() = user_id
+  and exists (
+    select 1
+    from public.runs r
+    join public.sections s
+      on s.id = section_id
+    where r.id = run_id
+      and r.user_id = auth.uid()
+      and s.user_id = auth.uid()
+      and r.category_id = s.category_id
+  )
+);
+
+create policy "run_splits_delete"
+on public.run_splits
+for delete
+using (auth.uid() = user_id);
 
 create or replace function public.handle_new_user()
 returns trigger

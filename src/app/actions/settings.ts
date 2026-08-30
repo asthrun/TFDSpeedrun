@@ -13,13 +13,42 @@ const SHORTCUT_FIELDS = [
   "shortcut_next_section",
 ] as const;
 
-export async function updateSettings(patch: Partial<UserSettings>) {
+const SETTING_FIELDS = [
+  "chroma_hex",
+  "transparent_background",
+  "font_scale",
+  "font_family",
+  "show_best_of",
+  "show_sum_of_best",
+  "show_pb_delta",
+  "show_section_delta",
+  "compare_mode",
+] as const;
+
+type SettingField = (typeof SETTING_FIELDS)[number];
+
+type SettingsPatch = Partial<
+  Pick<UserSettings, SettingField>
+>;
+
+export async function updateSettings(
+  patch: SettingsPatch
+) {
   const { supabase, user } = await requireUser();
+
+  const safePatch: SettingsPatch = {};
+
+  for (const field of SETTING_FIELDS) {
+    if (field in patch) {
+      (safePatch as Record<string, unknown>)[field] =
+        patch[field];
+    }
+  }
 
   const { error } = await supabase
     .from("user_settings")
     .update({
-      ...patch,
+      ...safePatch,
       updated_at: new Date().toISOString(),
     })
     .eq("user_id", user.id);

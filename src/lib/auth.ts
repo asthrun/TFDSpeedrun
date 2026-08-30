@@ -4,10 +4,26 @@ import type { UserSettings } from "@/lib/database.types";
 
 export async function requireUser() {
   const supabase = await createClient();
+
   const {
     data: { user },
+    error,
   } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+
+  if (error) {
+    console.error("Failed to authenticate user:", error);
+
+    if (!user) {
+      redirect("/login");
+    }
+
+    throw new Error("Failed to authenticate user.");
+  }
+
+  if (!user) {
+    redirect("/login");
+  }
+
   return { supabase, user };
 }
 

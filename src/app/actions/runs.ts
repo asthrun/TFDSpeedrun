@@ -6,18 +6,68 @@ import { revalidatePath } from "next/cache";
 import type { ActionState } from "@/lib/action-state";
 
 export async function persistLiveRun(
-  state: LiveRunState,
-  sectionCount: number
-) {
+  state: LiveRunState
+)  {
   const { supabase, user } = await requireUser();
 
-  const valid =
-    isRunValid(state.splits, sectionCount) &&
-    state.status === "stopped";
+  const { data: sections, error: sectionsError } = await supabase
+    .from("sections")
+    .select("id")
+    .eq("category_id", state.categoryId)
+    .eq("user_id", user.id);
 
-  const startedAt = new Date(state.startedAt).toISOString();
-  const completedAt =
-    state.status === "stopped" ? new Date().toISOString() : null;
+  if (sectionsError) {
+    console.error("Failed to validate run sections:", sectionsError);
+
+    return {
+      error: "Your run could not be saved. Please try again.",
+      runId: state.runId,
+    };
+  }
+
+  const validSectionIds = new Set(
+    sections.map((section) => section.id)
+  );
+
+  const splitsAreValid = state.splits.every(
+    (split) =>
+      split === null ||
+      (
+        validSectionIds.has(split.sectionId) &&
+        Number.isFinite(split.timeMs) &&
+        split.timeMs >= 0
+      )
+  );
+
+  if (!splitsAreValid) {
+    console.error("Invalid run split data received.");
+
+    return {
+      error: "Your run contains invalid split data.",
+      runId: state.runId,
+    };
+  }
+
+  const valid =
+  isRunValid(state.splits, sections.length) &&
+  state.status === "stopped";
+
+if (
+  !Number.isFinite(state.startedAt) ||
+  state.startedAt <= 0
+) {
+  console.error("Invalid run start time received.");
+
+  return {
+    error: "Your run contains invalid timing data.",
+    runId: state.runId,
+  };
+}
+
+const startedAt = new Date(state.startedAt).toISOString();
+
+const completedAt =
+  state.status === "stopped" ? new Date().toISOString() : null;
 
   let runId = state.runId;
 
@@ -30,6 +80,7 @@ export async function persistLiveRun(
       })
       .eq("id", runId)
       .eq("user_id", user.id)
+      .eq("category_id", state.categoryId)
       .select("id")
       .maybeSingle();
 
@@ -136,7 +187,8 @@ export async function abandonRun(
     .from("runs")
     .delete()
     .eq("id", runId)
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .eq("category_id", categoryId);
 
   if (error) {
     console.error("Failed to abandon run:", error);
@@ -167,7 +219,8 @@ export async function deleteRun(
       .from("runs")
       .delete()
       .eq("id", runId)
-      .eq("user_id", user.id);
+      .eq("user_id", user.id)
+      .eq("category_id", categoryId);
 
     if (error) {
       console.error("Failed to delete run:", error);

@@ -130,6 +130,15 @@ if (splitError) {
 }
 
 function csv(value: string) {
-  if (/[",\n]/.test(value)) return `"${value.replaceAll('"', '""')}"`;
-  return value;
+  let safeValue = value;
+
+  if (/^[=+\-@\t\r]/.test(safeValue)) {
+    safeValue = `'${safeValue}`;
+  }
+
+  if (/[",\n]/.test(safeValue)) {
+    return `"${safeValue.replaceAll('"', '""')}"`;
+  }
+
+  return safeValue;
 }
