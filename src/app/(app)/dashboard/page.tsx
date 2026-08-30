@@ -4,16 +4,32 @@ import { requireUser } from "@/lib/auth";
 
 export default async function DashboardPage() {
   const { supabase, user } = await requireUser();
-  const { data: profiles } = await supabase
+  const {
+    data: profiles,
+    error: profilesError,
+  } = await supabase
     .from("game_profiles")
     .select("id, name, created_at")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
-  const { data: categories } = await supabase
+  if (profilesError) {
+    console.error("Failed to load game profiles:", profilesError);
+    throw new Error("Failed to load game profiles.");
+  }
+
+  const {
+    data: categories,
+    error: categoriesError,
+  } = await supabase
     .from("categories")
     .select("id, name, game_profile_id")
     .eq("user_id", user.id);
+
+  if (categoriesError) {
+    console.error("Failed to load dashboard categories:", categoriesError);
+    throw new Error("Failed to load dashboard categories.");
+  }
 
   return (
     <main className="mx-auto w-full max-w-3xl p-6">
@@ -25,8 +41,10 @@ export default async function DashboardPage() {
       <CreateGameProfileForm />
 
       <ul className="mt-6 space-y-3">
-        {(profiles ?? []).map((profile) => {
-          const cats = (categories ?? []).filter((c) => c.game_profile_id === profile.id);
+        {profiles.map((profile) => {
+        const cats = categories.filter(
+          (c) => c.game_profile_id === profile.id
+        );
           return (
             <li key={profile.id} className="rounded-xl border border-zinc-800 p-4">
               <Link href={`/profiles/${profile.id}`} className="text-lg font-medium hover:underline">

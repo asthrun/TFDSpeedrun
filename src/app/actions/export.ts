@@ -10,32 +10,62 @@ export async function exportCsv(): Promise<{ error: string | null; csv: string |
     .from("game_profiles")
     .select("id, name")
     .eq("user_id", user.id);
-  if (profileError) return { error: profileError.message, csv: null };
+  if (profileError) {
+  console.error("Failed to load profiles for CSV export:", profileError);
+  return {
+    error: "We couldn't export your data. Please try again.",
+    csv: null,
+  };
+}
 
   const { data: categories, error: categoryError } = await supabase
     .from("categories")
     .select("id, name, game_profile_id, target_time_ms")
     .eq("user_id", user.id);
-  if (categoryError) return { error: categoryError.message, csv: null };
+  if (categoryError) {
+  console.error("Failed to load categories for CSV export:", categoryError);
+  return {
+    error: "We couldn't export your data. Please try again.",
+    csv: null,
+  };
+}
 
   const { data: sections, error: sectionError } = await supabase
     .from("sections")
     .select("id, name, category_id, sort_order")
     .eq("user_id", user.id);
-  if (sectionError) return { error: sectionError.message, csv: null };
+if (sectionError) {
+  console.error("Failed to load sections for CSV export:", sectionError);
+  return {
+    error: "We couldn't export your data. Please try again.",
+    csv: null,
+  };
+}
 
   const { data: runs, error: runError } = await supabase
     .from("runs")
     .select("id, category_id, started_at, completed_at, is_valid")
     .eq("user_id", user.id)
     .order("started_at", { ascending: true });
-  if (runError) return { error: runError.message, csv: null };
+  if (runError) {
+  console.error("Failed to load runs for CSV export:", runError);
+  return {
+    error: "We couldn't export your data. Please try again.",
+    csv: null,
+  };
+}
 
   const { data: splits, error: splitError } = await supabase
     .from("run_splits")
     .select("run_id, section_id, time_ms")
     .eq("user_id", user.id);
-  if (splitError) return { error: splitError.message, csv: null };
+if (splitError) {
+  console.error("Failed to load splits for CSV export:", splitError);
+  return {
+    error: "We couldn't export your data. Please try again.",
+    csv: null,
+  };
+}
 
   const profileName = new Map((profiles ?? []).map((p) => [p.id, p.name]));
   const categoryById = new Map((categories ?? []).map((c) => [c.id, c]));

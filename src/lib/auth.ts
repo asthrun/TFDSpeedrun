@@ -13,19 +13,32 @@ export async function requireUser() {
 
 export async function getSettings(): Promise<UserSettings> {
   const { supabase, user } = await requireUser();
+
   const { data, error } = await supabase
     .from("user_settings")
     .select("*")
     .eq("user_id", user.id)
     .maybeSingle();
-  if (error) throw error;
-  if (data) return data;
+
+  if (error) {
+    console.error("Failed to load user settings:", error);
+    throw new Error("Failed to load user settings.");
+  }
+
+  if (data) {
+    return data;
+  }
 
   const { data: created, error: insertError } = await supabase
     .from("user_settings")
     .insert({ user_id: user.id })
     .select("*")
     .single();
-  if (insertError) throw insertError;
+
+  if (insertError) {
+    console.error("Failed to create user settings:", insertError);
+    throw new Error("Failed to create user settings.");
+  }
+
   return created;
 }
