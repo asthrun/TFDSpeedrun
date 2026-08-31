@@ -8,10 +8,11 @@ drop function if exists public.handle_new_user();
 
 drop table if exists public.run_splits cascade;
 drop table if exists public.runs cascade;
-drop table if exists public.share_sessions cascade;
+drop table if exists public.custom_target_splits cascade;
 drop table if exists public.sections cascade;
 drop table if exists public.categories cascade;
 drop table if exists public.game_profiles cascade;
+drop table if exists public.user_profiles cascade;
 drop table if exists public.user_settings cascade;
 
 create table public.user_settings (
@@ -34,6 +35,26 @@ create table public.user_settings (
   updated_at timestamptz not null default now()
 );
 
+create table public.user_profiles (
+  user_id uuid primary key
+    references auth.users (id)
+    on delete cascade,
+
+  display_name text,
+
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+
+  constraint user_profiles_display_name_check
+    check (
+      display_name is null
+      or (
+        char_length(trim(display_name)) > 0
+        and char_length(trim(display_name)) <= 50
+      )
+    )
+);
+
 create table public.game_profiles (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
@@ -43,10 +64,32 @@ create table public.game_profiles (
 
 create table public.categories (
   id uuid primary key default gen_random_uuid(),
-  game_profile_id uuid not null references public.game_profiles (id) on delete cascade,
-  user_id uuid not null references auth.users (id) on delete cascade,
+
+  game_profile_id uuid not null
+    references public.game_profiles (id)
+    on delete cascade,
+
+  user_id uuid not null
+    references auth.users (id)
+    on delete cascade,
+
   name text not null,
+
   target_time_ms bigint,
+
+  compare_mode text not null default 'personal_best'
+    check (
+      compare_mode in (
+        'personal_best',
+        'custom_target',
+        'latest_run',
+        'worst_run'
+      )
+    ),
+
+  attempt_count integer not null default 0
+    check (attempt_count >= 0),
+
   created_at timestamptz not null default now()
 );
 
@@ -59,6 +102,8 @@ create table public.sections (
   created_at timestamptz not null default now(),
   unique (category_id, sort_order)
 );
+
+
 
 create table public.runs (
   id uuid primary key default gen_random_uuid(),
@@ -78,16 +123,6 @@ create table public.run_splits (
   primary key (run_id, section_id)
 );
 
-create table public.share_sessions (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users (id) on delete cascade,
-  category_id uuid not null references public.categories (id) on delete cascade,
-  token text not null unique,
-  referee_user_id uuid references auth.users (id) on delete set null,
-  created_at timestamptz not null default now(),
-  last_split_at timestamptz,
-  closed_at timestamptz
-);
 
 create index game_profiles_user_id_idx on public.game_profiles (user_id);
 create index categories_user_id_idx on public.categories (user_id);
@@ -95,7 +130,11 @@ create index categories_game_profile_id_idx on public.categories (game_profile_i
 create index sections_category_id_idx on public.sections (category_id);
 create index runs_user_category_idx on public.runs (user_id, category_id, started_at desc);
 create index run_splits_user_id_idx on public.run_splits (user_id);
-create index share_sessions_token_idx on public.share_sessions (token);
+
+
+alter table public.sections
+  add constraint sections_id_category_user_key
+  unique (id, category_id, user_id);
 
 alter table public.game_profiles
   add constraint game_profiles_id_user_id_key
@@ -113,6 +152,32 @@ alter table public.sections
   add constraint sections_id_user_id_key
   unique (id, user_id);
 
+create table public.custom_target_splits (
+  category_id uuid not null,
+  section_id uuid not null,
+  user_id uuid not null,
+
+  -- Cumulatieve target split-time, niet de losse segmenttijd.
+  time_ms bigint not null,
+
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+
+  primary key (category_id, section_id, user_id),
+
+  constraint custom_target_splits_time_check
+    check (time_ms >= 0),
+
+  constraint custom_target_splits_category_user_fkey
+    foreign key (category_id, user_id)
+    references public.categories (id, user_id)
+    on delete cascade,
+
+  constraint custom_target_splits_section_category_user_fkey
+    foreign key (section_id, category_id, user_id)
+    references public.sections (id, category_id, user_id)
+    on delete cascade
+);
 
 alter table public.categories
   add constraint categories_profile_user_fkey
@@ -144,6 +209,16 @@ alter table public.run_splits
   references public.sections (id, user_id)
   on delete cascade;
 
+alter table public.user_settings enable row level security;
+alter table public.user_profiles enable row level security;
+alter table public.game_profiles enable row level security;
+alter table public.categories enable row level security;
+alter table public.sections enable row level security;
+alter table public.custom_target_splits enable row level security;
+alter table public.runs enable row level security;
+alter table public.run_splits enable row level security;
+
+
 create policy "user_settings_select"
 on public.user_settings
 for select
@@ -159,6 +234,7 @@ on public.user_settings
 for update
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
+
 
 
 create policy "game_profiles_select"
@@ -350,6 +426,104 @@ on public.run_splits
 for delete
 using (auth.uid() = user_id);
 
+create or replace function public.set_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+create policy "user_profiles_select_own"
+on public.user_profiles
+for select
+using (
+  auth.uid() = user_id
+);
+
+create policy "user_profiles_insert_own"
+on public.user_profiles
+for insert
+with check (
+  auth.uid() = user_id
+);
+
+create policy "user_profiles_update_own"
+on public.user_profiles
+for update
+using (
+  auth.uid() = user_id
+)
+with check (
+  auth.uid() = user_id
+);
+
+create policy "user_profiles_delete_own"
+on public.user_profiles
+for delete
+using (
+  auth.uid() = user_id
+);
+
+create policy "custom_target_splits_select_own"
+on public.custom_target_splits
+for select
+using (
+  auth.uid() = user_id
+);
+
+create policy "custom_target_splits_insert_own"
+on public.custom_target_splits
+for insert
+with check (
+  auth.uid() = user_id
+  and exists (
+    select 1
+    from public.categories as c
+    where c.id = category_id
+      and c.user_id = auth.uid()
+  )
+  and exists (
+    select 1
+    from public.sections as s
+    where s.id = section_id
+      and s.category_id = category_id
+      and s.user_id = auth.uid()
+  )
+);
+
+create policy "custom_target_splits_update_own"
+on public.custom_target_splits
+for update
+using (
+  auth.uid() = user_id
+)
+with check (
+  auth.uid() = user_id
+  and exists (
+    select 1
+    from public.categories as c
+    where c.id = category_id
+      and c.user_id = auth.uid()
+  )
+  and exists (
+    select 1
+    from public.sections as s
+    where s.id = section_id
+      and s.category_id = category_id
+      and s.user_id = auth.uid()
+  )
+);
+
+create policy "custom_target_splits_delete_own"
+on public.custom_target_splits
+for delete
+using (
+  auth.uid() = user_id
+);
+
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -357,7 +531,14 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.user_settings (user_id) values (new.id);
+  insert into public.user_settings (user_id)
+  values (new.id)
+  on conflict (user_id) do nothing;
+
+  insert into public.user_profiles (user_id)
+  values (new.id)
+  on conflict (user_id) do nothing;
+
   return new;
 end;
 $$;
@@ -366,6 +547,21 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
+create trigger user_profiles_set_updated_at
+before update on public.user_profiles
+for each row
+execute function public.set_updated_at();
+
+create trigger custom_target_splits_set_updated_at
+before update on public.custom_target_splits
+for each row
+execute function public.set_updated_at();
+
 insert into public.user_settings (user_id)
 select id from auth.users
 on conflict (user_id) do nothing;
+
+insert into public.user_profiles (user_id)
+select id from auth.users
+on conflict (user_id) do nothing;
+
