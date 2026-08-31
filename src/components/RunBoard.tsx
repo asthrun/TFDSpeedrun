@@ -6,11 +6,28 @@ import { fontCss } from "@/lib/fonts";
 import { formatSignedDelta, formatTime } from "@/lib/format-time";
 import {
   clearLiveRun,
-  isRunValid,
-  readLiveRun,
-  writeLiveRun,
-  type LiveRunState,
+  readTimerLiveRun,
+  writeTimerLiveRun,
+  type TimerLiveRunState,
 } from "@/lib/live-run";
+import {
+  canUndo,
+  getElapsedMs,
+  getTimerSegments,
+  isFinalizable,
+  isTimerValid,
+  pauseTimer,
+  resetTimer,
+  resumeTimer,
+  skipTimer,
+  splitTimer,
+  startTimer,
+  undoTimer,
+} from "@/lib/timer-engine";
+import {
+  finalizeTimerRun,
+  incrementAttemptCount,
+} from "@/app/actions/runs";
 import { abandonRun, persistLiveRun } from "@/app/actions/runs";
 import { updateSettings } from "@/app/actions/settings";
 import type { Category, Section, UserSettings } from "@/lib/database.types";
@@ -34,271 +51,368 @@ export function RunBoard({
   history,
   overlay = false,
 }: Props) {
-  const [live, setLive] = useState<LiveRunState | null>(null);
+    const [live, setLive] = useState<TimerLiveRunState | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [settingsState, setSettingsState] = useState(settings);
   const [saveStatus, setSaveStatus] = useState<
-  "idle" | "saving" | "saved" | "error"
->("idle");
-
+    "idle" | "saving" | "saved" | "error"
+  >("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const [failedAbandonRunId, setFailedAbandonRunId] = useState<string | null>(
-    null
-  );
-  const undoStack = useRef<(LiveRunState | null)[]>([]);
-  const persistTimer = useRef<number | null>(null);
+  const finalizingStartedAt = useRef<number | null>(null);
 
   useEffect(() => {
-    setLive(readLiveRun(category.id));
+    setLive(readTimerLiveRun(category.id));
   }, [category.id]);
 
   useEffect(() => {
     let frame = 0;
+
     const tick = () => {
       setNow(Date.now());
       frame = requestAnimationFrame(tick);
     };
+
     frame = requestAnimationFrame(tick);
+
     return () => cancelAnimationFrame(frame);
   }, []);
 
-  const persistRun = useCallback(
-  async (state: LiveRunState) => {
-    setSaveStatus("saving");
+  const saveLiveState = useCallback(
+    (next: TimerLiveRunState | null) => {
+      setLive(next);
+
+      if (next) {
+        writeTimerLiveRun(next);
+      } else {
+        clearLiveRun(category.id);
+      }
+    },
+    [category.id],
+  );
+
+  const timer = live?.timer ?? null;
+
+  const elapsedMs = timer
+    ? getElapsedMs(timer, now)
+    : 0;
+
+  const timerSegments = useMemo(
+    () => (timer ? getTimerSegments(timer) : []),
+    [timer],
+  );
+
+  const currentSectionIndex = timer?.progress.length ?? 0;
+
+  const currentSegmentMs = useMemo(() => {
+    if (
+      !timer ||
+      (timer.status !== "running" && timer.status !== "paused")
+    ) {
+      return 0;
+    }
+
+    const previousBoundaryMs =
+      timer.progress.length > 0
+        ? timer.progress[timer.progress.length - 1].timeMs
+        : 0;
+
+    return Math.max(0, elapsedMs - previousBoundaryMs);
+  }, [elapsedMs, timer]);
+
+  const best = useMemo(
+    () => personalBests(history, sections),
+    [history, sections],
+  );
+
+  const sob = useMemo(
+    () => sumOfBest(best, sections),
+    [best, sections],
+  );
+
+  const targetSegment = evenSplitTarget(
+    category.target_time_ms,
+    sections.length,
+  );
+
+  const start = useCallback(() => {
+    if (sections.length === 0) return;
+
+    const now = Date.now();
+
+    const nextTimer = startTimer(
+      timer ?? {
+        status: "idle",
+        startedAt: null,
+        pausedAt: null,
+        totalPausedMs: 0,
+        progress: [],
+        finishedAt: null,
+        finalizeAt: null,
+      },
+      now,
+    );
+
+    if (nextTimer === timer) return;
+
+    finalizingStartedAt.current = null;
+
+    saveLiveState({
+      runId: null,
+      categoryId: category.id,
+      timer: nextTimer,
+    });
+
+    setSaveStatus("idle");
     setSaveError(null);
 
-    try {
-      const result = await persistLiveRun(state);
-
-      if (result.error) {
-        setSaveStatus("error");
-        setSaveError(result.error);
-        return result;
-      }
-
-      setSaveStatus("saved");
-      setSaveError(null);
-
-      return result;
-    } catch (error) {
-      console.error("Unexpected error while saving run:", error);
-
-      const message = "Your run could not be saved. Please try again.";
-
-      setSaveStatus("error");
-      setSaveError(message);
-
-      return {
-        error: message,
-        runId: state.runId,
-      };
-    }
-  },
-  []
-);
-
-  const queuePersist = useCallback(
-  (state: LiveRunState) => {
-    writeLiveRun(state);
-
-    if (persistTimer.current) {
-      window.clearTimeout(persistTimer.current);
-    }
-
-    persistTimer.current = window.setTimeout(() => {
-      void persistRun(state).then((result) => {
-        if (result.runId && result.runId !== state.runId) {
-          const next = {
-            ...state,
-            runId: result.runId,
-          };
-
-          writeLiveRun(next);
-
-          setLive((current) =>
-            current && current.startedAt === state.startedAt
-              ? next
-              : current
-          );
-        }
-      });
-    }, 250);
-  },
-  [persistRun]
-);
-
-  const abandonSavedRun = useCallback(
-    async (runId: string) => {
+    void (async () => {
       try {
-        const result = await abandonRun(runId, category.id);
+        const result = await incrementAttemptCount(category.id);
 
         if (result.error) {
           setSaveStatus("error");
           setSaveError(result.error);
-          setFailedAbandonRunId(runId);
-
-          return false;
         }
-
-        setFailedAbandonRunId(null);
-
-        return true;
       } catch (error) {
-        console.error("Unexpected error while abandoning run:", error);
+        console.error(
+          "Unexpected error while counting attempt:",
+          error,
+        );
 
         setSaveStatus("error");
         setSaveError(
-          "The timer was reset, but the saved run could not be removed."
+          "Your attempt could not be counted.",
         );
-        setFailedAbandonRunId(runId);
-
-        return false;
       }
-    },
-    [category.id]
-  );
+    })();
+  }, [
+    category.id,
+    saveLiveState,
+    sections.length,
+    timer,
+  ]);
 
-  const commit = useCallback(
-      (next: LiveRunState | null, previous: LiveRunState | null) => {
-      undoStack.current.push(previous ? structuredClone(previous) : null);
+  const split = useCallback(() => {
+    if (!live || !timer) return;
 
-      setLive(next);
+    const nextTimer = splitTimer(
+      timer,
+      sections,
+      Date.now(),
+    );
 
-      if (next) {
-      queuePersist(next);
-      } else {
-        if (persistTimer.current) {
-          window.clearTimeout(persistTimer.current);
-          persistTimer.current = null;
+    if (nextTimer === timer) return;
+
+    finalizingStartedAt.current = null;
+
+    saveLiveState({
+      ...live,
+      timer: nextTimer,
+    });
+  }, [live, saveLiveState, sections, timer]);
+
+  const skip = useCallback(() => {
+    if (!live || !timer) return;
+
+    const nextTimer = skipTimer(
+      timer,
+      sections,
+      Date.now(),
+    );
+
+    if (nextTimer === timer) return;
+
+    finalizingStartedAt.current = null;
+
+    saveLiveState({
+      ...live,
+      timer: nextTimer,
+    });
+  }, [live, saveLiveState, sections, timer]);
+
+  const pauseResume = useCallback(() => {
+    if (!live || !timer) return;
+
+    const now = Date.now();
+
+    const nextTimer =
+      timer.status === "running"
+        ? pauseTimer(timer, now)
+        : timer.status === "paused"
+          ? resumeTimer(timer, now)
+          : timer;
+
+    if (nextTimer === timer) return;
+
+    saveLiveState({
+      ...live,
+      timer: nextTimer,
+    });
+  }, [live, saveLiveState, timer]);
+
+  const undo = useCallback(() => {
+    if (!live || !timer) return;
+
+    const nextTimer = undoTimer(
+      timer,
+      Date.now(),
+    );
+
+    if (nextTimer === timer) return;
+
+    finalizingStartedAt.current = null;
+
+    saveLiveState({
+      ...live,
+      runId: null,
+      timer: nextTimer,
+    });
+
+    setSaveStatus("idle");
+    setSaveError(null);
+  }, [live, saveLiveState, timer]);
+
+  const reset = useCallback(() => {
+    if (!live || !timer) return;
+
+    const nextTimer = resetTimer(timer);
+
+    if (nextTimer === timer) return;
+
+    finalizingStartedAt.current = null;
+
+    saveLiveState(null);
+
+    setSaveStatus("idle");
+    setSaveError(null);
+  }, [live, saveLiveState, timer]);
+
+  useEffect(() => {
+    if (
+      !live ||
+      !timer ||
+      !isFinalizable(timer, now) ||
+      timer.startedAt === null
+    ) {
+      return;
+    }
+
+    if (finalizingStartedAt.current === timer.startedAt) {
+      return;
+    }
+
+    finalizingStartedAt.current = timer.startedAt;
+
+    setSaveStatus("saving");
+    setSaveError(null);
+
+    void (async () => {
+      try {
+        const result = await finalizeTimerRun(
+          category.id,
+          timer,
+        );
+
+        if (result.error) {
+          finalizingStartedAt.current = null;
+          setSaveStatus("error");
+          setSaveError(result.error);
+          return;
         }
+
+        setSaveStatus("saved");
+        setSaveError(null);
 
         clearLiveRun(category.id);
 
-        if (previous?.runId) {
-          void abandonSavedRun(previous.runId);
-        }
+        setLive((current) => {
+          if (
+            current?.timer.startedAt !== timer.startedAt
+          ) {
+            return current;
+          }
+
+          return null;
+        });
+      } catch (error) {
+        console.error(
+          "Unexpected error while finalizing run:",
+          error,
+        );
+
+        finalizingStartedAt.current = null;
+        setSaveStatus("error");
+        setSaveError(
+          "Your run could not be saved. Please try again.",
+        );
       }
-
-      },
-      [abandonSavedRun, category.id, queuePersist],
-      );
-
-  const elapsedMs = live
-    ? live.status === "running"
-      ? Math.max(0, now - live.startedAt)
-      : live.splits.reduce((sum, split) => sum + (split?.timeMs ?? 0), 0)
-    : 0;
-
-  const currentSegmentMs = useMemo(() => {
-    if (!live || live.status !== "running") return 0;
-    const previous = live.splits.reduce((sum, split) => sum + (split?.timeMs ?? 0), 0);
-    return Math.max(0, elapsedMs - previous);
-  }, [elapsedMs, live]);
-
-  const best = useMemo(() => personalBests(history, sections), [history, sections]);
-  const sob = useMemo(() => sumOfBest(best, sections), [best, sections]);
-  const targetSegment = evenSplitTarget(category.target_time_ms, sections.length);
-
-  const start = useCallback(() => {
-  if (sections.length === 0) return;
-
-  if (live) {
-    void persistRun({ ...live, status: "stopped" });
-  }
-
-  const next: LiveRunState = {
-    runId: null,
-    categoryId: category.id,
-    startedAt: Date.now(),
-    status: "running",
-    currentSectionIndex: 0,
-    splits: Array(sections.length).fill(null),
-  };
-
-    commit(next, live);
-  }, [category.id, commit, live, persistRun, sections.length]);
-
-  const split = useCallback(() => {
-    if (!live || live.status !== "running") return;
-    if (live.currentSectionIndex >= sections.length) return;
-    const section = sections[live.currentSectionIndex];
-    const nextSplits = [...live.splits];
-    nextSplits[live.currentSectionIndex] = { sectionId: section.id, timeMs: currentSegmentMs };
-    const nextIndex = live.currentSectionIndex + 1;
-    const done = nextIndex >= sections.length;
-    const next: LiveRunState = {
-      ...live,
-      splits: nextSplits,
-      currentSectionIndex: Math.min(nextIndex, sections.length),
-      status: done ? "stopped" : "running",
-    };
-    commit(next, live);
-    if (done) {
-      void persistRun(next);
-    }
-  }, [commit, currentSegmentMs, live, sections]);
-
-  const stop = useCallback(() => {
-    if (!live || live.status !== "running") return;
-    commit({ ...live, status: "stopped" }, live);
-  }, [commit, live]);
-
-  const reset = useCallback(() => {
-    if (!live) return;
-    commit(null, live);
-  }, [commit, live]);
-
-  const nextSection = useCallback(() => {
-    if (!live || live.status !== "running") return;
-    if (live.currentSectionIndex >= sections.length - 1) return;
-    commit(
-      {
-        ...live,
-        currentSectionIndex: live.currentSectionIndex + 1,
-      },
-      live,
-    );
-  }, [commit, live, sections.length]);
-
-  const undo = useCallback(() => {
-    const previous = undoStack.current.pop();
-
-    if (previous === undefined) return;
-
-    const discarded = live;
-
-    setLive(previous);
-
-    if (previous) {
-      queuePersist(previous);
-    } else {
-      clearLiveRun(category.id);
-    }
-
-    if (discarded?.runId && discarded.runId !== previous?.runId) { void abandonSavedRun(discarded.runId); } }, [abandonSavedRun, category.id, live, queuePersist]);
+    })();
+  }, [category.id, live, now, timer]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
-      if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
-      const map: Record<string, () => void> = {};
-      if (settingsState.shortcut_start) map[settingsState.shortcut_start] = start;
-      if (settingsState.shortcut_stop) map[settingsState.shortcut_stop] = stop;
-      if (settingsState.shortcut_split) map[settingsState.shortcut_split] = split;
-      if (settingsState.shortcut_reset) map[settingsState.shortcut_reset] = reset;
-      if (settingsState.shortcut_undo) map[settingsState.shortcut_undo] = undo;
-      if (settingsState.shortcut_next_section) {
-        map[settingsState.shortcut_next_section] = nextSection;
+
+      if (
+        target &&
+        (
+          ["INPUT", "TEXTAREA", "SELECT"].includes(
+            target.tagName,
+          ) ||
+          target.isContentEditable
+        )
+      ) {
+        return;
       }
+
+      const map: Record<string, () => void> = {};
+
+      // Temporary compatibility with the existing settings model.
+      if (settingsState.shortcut_start) {
+        map[settingsState.shortcut_start] =
+          timer?.status === "running"
+            ? split
+            : start;
+      }
+
+      if (settingsState.shortcut_split) {
+        map[settingsState.shortcut_split] = split;
+      }
+
+      if (settingsState.shortcut_reset) {
+        map[settingsState.shortcut_reset] = reset;
+      }
+
+      if (settingsState.shortcut_undo) {
+        map[settingsState.shortcut_undo] = undo;
+      }
+
+      if (settingsState.shortcut_next_section) {
+        map[settingsState.shortcut_next_section] = skip;
+      }
+
       const action = map[event.code];
+
       if (!action) return;
+
       event.preventDefault();
       action();
     };
+
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [nextSection, reset, settingsState, split, start, stop, undo]);
+
+    return () =>
+      window.removeEventListener("keydown", onKey);
+  }, [
+    reset,
+    settingsState,
+    skip,
+    split,
+    start,
+    timer?.status,
+    undo,
+  ]);
 
   function toggleSetting(
       key:
@@ -335,7 +449,10 @@ export function RunBoard({
       })();
     }
 
-  const valid = live ? isRunValid(live.splits, sections.length) && live.status === "stopped" : false;
+  const valid =
+  timer?.status === "finished"
+    ? isTimerValid(timer)
+    : false;
   const background = overlay
     ? settingsState.transparent_background
       ? "transparent"
@@ -360,13 +477,15 @@ export function RunBoard({
           <div className="text-right">
             <div className="font-mono text-[1.8em] tabular-nums leading-none">{formatTime(elapsedMs)}</div>
             <div className="text-[0.7em] text-zinc-400">
-              {live?.status === "running"
+              {timer?.status === "running"
                 ? "Running"
-                : live?.status === "stopped"
-                  ? valid
-                    ? "Valid"
-                    : "Invalid"
-                  : "Idle"}
+                : timer?.status === "paused"
+                  ? "Paused"
+                  : timer?.status === "finished"
+                    ? valid
+                      ? "Finished"
+                      : "Invalid"
+                    : "Idle"}
             </div>
           </div>
         </div>
@@ -381,34 +500,13 @@ export function RunBoard({
                       )}
 
                       {saveStatus === "error" && (
-                      <div role="alert" className="space-y-2 text-red-400">
-                        <p>
+                        <div role="alert" className="text-red-400">
                           {saveError ?? "Your run could not be saved."}
-                        </p>
-
-                        {failedAbandonRunId && (
-                          <div className="flex justify-end gap-3">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                void abandonSavedRun(failedAbandonRunId);
-                              }}
-                              className="underline underline-offset-2 hover:text-red-300"
-                            >
-                              Retry
-                            </button>
-
-                            <a
-                              href={`/categories/${category.id}/history?highlight=${failedAbandonRunId}`}
-                              className="underline underline-offset-2 hover:text-red-300"
-                            >
-                              Open Run History
-                            </a>
-                          </div>
-                        )}
+                        </div>
+                      )}
                       </div>
-                    )}
-                    </div>
+                    
+                    
           )}
         {settingsState.show_sum_of_best && (
           <div className="mt-2 text-[0.85em] text-zinc-300">
@@ -421,9 +519,21 @@ export function RunBoard({
 
         <ol className="mt-3 space-y-1">
           {sections.map((section, index) => {
-            const recorded = live?.splits[index] ?? null;
-            const isCurrent = live?.status === "running" && live.currentSectionIndex === index;
-            const segment = recorded?.timeMs ?? (isCurrent ? currentSegmentMs : null);
+            const recorded = timerSegments[index] ?? null;
+
+            const isCurrent =
+              (timer?.status === "running" ||
+                timer?.status === "paused") &&
+              currentSectionIndex === index;
+
+            const segment =
+              recorded?.type === "split"
+                ? recorded.timeMs
+                : recorded?.type === "skip"
+                  ? null
+                  : isCurrent
+                    ? currentSegmentMs
+                    : null;
             const compareMs =
               settingsState.compare_mode === "target" ? targetSegment : best[section.id];
             const pb = best[section.id];
@@ -435,7 +545,15 @@ export function RunBoard({
               else if (delta < 0) tone = "green";
               else if (delta > 0) tone = "red";
             }
-            const prevSegment = index > 0 ? (live?.splits[index - 1]?.timeMs ?? null) : null;
+            const previousRecorded =
+              index > 0
+                ? timerSegments[index - 1] ?? null
+                : null;
+
+            const prevSegment =
+              previousRecorded?.type === "split"
+                ? previousRecorded.timeMs
+                : null;
             const sectionDelta =
               settingsState.show_section_delta && segment != null && prevSegment != null
                 ? segment - prevSegment
@@ -473,20 +591,65 @@ export function RunBoard({
         {!overlay && (
           <>
             <div className="mt-4 flex flex-wrap gap-2">
-              <TimerButton onClick={start}>Start</TimerButton>
-              <TimerButton onClick={split} disabled={!live || live.status !== "running"}>
-                Split
+              <TimerButton
+                onClick={
+                  timer?.status === "running"
+                    ? split
+                    : start
+                }
+                disabled={
+                  timer?.status === "paused" ||
+                  timer?.status === "finished"
+                }
+              >
+                {timer?.status === "running"
+                  ? currentSectionIndex === sections.length - 1
+                    ? "Finish"
+                    : "Split"
+                  : "Start"}
               </TimerButton>
-              <TimerButton onClick={stop} disabled={!live || live.status !== "running"}>
-                Stop
+
+              <TimerButton
+                onClick={pauseResume}
+                disabled={
+                  !timer ||
+                  (
+                    timer.status !== "running" &&
+                    timer.status !== "paused"
+                  )
+                }
+              >
+                {timer?.status === "paused"
+                  ? "Resume"
+                  : "Pause"}
               </TimerButton>
-              <TimerButton onClick={nextSection} disabled={!live || live.status !== "running"}>
-                Next section
+
+              <TimerButton
+                onClick={skip}
+                disabled={
+                  !timer ||
+                  timer.status !== "running"
+                }
+              >
+                Skip
               </TimerButton>
-              <TimerButton onClick={reset} disabled={!live}>
+
+              <TimerButton
+                onClick={undo}
+                disabled={
+                  !timer ||
+                  !canUndo(timer, now)
+                }
+              >
+                Undo
+              </TimerButton>
+
+              <TimerButton
+                onClick={reset}
+                disabled={!timer}
+              >
                 Reset
               </TimerButton>
-              <TimerButton onClick={undo}>Undo</TimerButton>
             </div>
 
             <div className="mt-4 grid gap-2 text-sm text-zinc-300 sm:grid-cols-2">
