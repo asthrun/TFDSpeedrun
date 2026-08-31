@@ -18,6 +18,7 @@ export default async function OverlayPage({
       sections={bundle.sections}
       settings={bundle.settings}
       history={bundle.history}
+      customTargetSplits={bundle.customTargetSplits}
       overlay
     />
   );

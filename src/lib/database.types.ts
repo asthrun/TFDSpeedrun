@@ -296,7 +296,7 @@ export type Database = {
           shortcut_stop: string | null
           shortcut_undo: string | null
           show_best_of: boolean
-          show_pb_delta: boolean
+          show_compare_delta: boolean
           show_section_delta: boolean
           show_sum_of_best: boolean
           transparent_background: boolean
@@ -315,7 +315,7 @@ export type Database = {
           shortcut_stop?: string | null
           shortcut_undo?: string | null
           show_best_of?: boolean
-          show_pb_delta?: boolean
+          show_compare_delta?: boolean
           show_section_delta?: boolean
           show_sum_of_best?: boolean
           transparent_background?: boolean
@@ -334,7 +334,7 @@ export type Database = {
           shortcut_stop?: string | null
           shortcut_undo?: string | null
           show_best_of?: boolean
-          show_pb_delta?: boolean
+          show_compare_delta?: boolean
           show_section_delta?: boolean
           show_sum_of_best?: boolean
           transparent_background?: boolean

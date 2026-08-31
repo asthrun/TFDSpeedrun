@@ -2,11 +2,14 @@ import type { RunWithSplits } from "@/lib/analytics";
 import { requireUser } from "@/lib/auth";
 import type {
   Category,
+  Database,
   GameProfile,
   RunSplit,
   Section,
   UserSettings,
 } from "@/lib/database.types";
+type CustomTargetSplit =
+  Database["public"]["Tables"]["custom_target_splits"]["Row"];
 
 export async function loadCategoryBundle(categoryId: string): Promise<{
   category: Category;
@@ -14,6 +17,7 @@ export async function loadCategoryBundle(categoryId: string): Promise<{
   sections: Section[];
   settings: UserSettings;
   history: RunWithSplits[];
+  customTargetSplits: CustomTargetSplit[];
 } | null> {
   const { supabase, user } = await requireUser();
 
@@ -68,6 +72,26 @@ export async function loadCategoryBundle(categoryId: string): Promise<{
     console.error("Failed to load sections:", sectionsError);
     throw new Error("Failed to load sections.");
   }
+
+    const {
+      data: customTargetSplits,
+      error: customTargetSplitsError,
+    } = await supabase
+      .from("custom_target_splits")
+      .select("*")
+      .eq("category_id", categoryId)
+      .eq("user_id", user.id);
+
+    if (customTargetSplitsError) {
+      console.error(
+        "Failed to load custom target splits:",
+        customTargetSplitsError,
+      );
+
+      throw new Error(
+        "Failed to load custom target splits.",
+      );
+    }
 
   const {
     data: settingsRow,
@@ -155,5 +179,6 @@ export async function loadCategoryBundle(categoryId: string): Promise<{
     sections,
     settings,
     history,
+    customTargetSplits,
   };
 }

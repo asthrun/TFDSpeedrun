@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { evenSplitTarget, personalBests, sumOfBest, type RunWithSplits } from "@/lib/analytics";
+import {
+  type RunWithSplits,
+} from "@/lib/analytics";
 import { fontCss } from "@/lib/fonts";
 import { formatSignedDelta, formatTime } from "@/lib/format-time";
 import {
@@ -30,6 +32,16 @@ import {
 } from "@/app/actions/runs";
 import { updateSettings } from "@/app/actions/settings";
 import type { Category, Section, UserSettings } from "@/lib/database.types";
+import {
+  compareTimerProgress,
+  getBestSegments,
+  getCustomTargetSource,
+  getLatestRunSource,
+  getPersonalBestSource,
+  getSumOfBest,
+  getWorstRunSource,
+  type ComparisonSource,
+} from "@/lib/comparison-engine";
 
 type Props = {
   category: Category;
@@ -37,10 +49,20 @@ type Props = {
   sections: Section[];
   settings: UserSettings;
   history: RunWithSplits[];
+  customTargetSplits: {
+    section_id: string;
+    time_ms: number;
+  }[];
   overlay?: boolean;
 };
 
-type DeltaTone = "gold" | "green" | "red" | "neutral";
+type DeltaTone =
+  | "gold"
+  | "ahead-gaining"
+  | "ahead-losing"
+  | "behind-gaining"
+  | "behind-losing"
+  | "neutral";
 
 export function RunBoard({
   category,
@@ -48,6 +70,7 @@ export function RunBoard({
   sections,
   settings,
   history,
+  customTargetSplits,
   overlay = false,
 }: Props) {
     const [live, setLive] = useState<TimerLiveRunState | null>(null);
@@ -120,18 +143,88 @@ export function RunBoard({
   }, [elapsedMs, timer]);
 
   const best = useMemo(
-    () => personalBests(history, sections),
-    [history, sections],
+  () => getBestSegments(history, sections),
+  [history, sections],
   );
 
   const sob = useMemo(
-    () => sumOfBest(best, sections),
+    () => getSumOfBest(best, sections),
     [best, sections],
   );
 
-  const targetSegment = evenSplitTarget(
-    category.target_time_ms,
-    sections.length,
+    const comparisonBestSegments = useMemo(
+    () => getBestSegments(history, sections),
+    [history, sections],
+  );
+
+  const comparisonSumOfBest = useMemo(
+    () => getSumOfBest(comparisonBestSegments, sections),
+    [comparisonBestSegments, sections],
+  );
+
+   const personalBestSource = useMemo(
+    () => getPersonalBestSource(history, sections),
+    [history, sections],
+  );
+
+  const latestRunSource = useMemo(
+    () => getLatestRunSource(history, sections),
+    [history, sections],
+  );
+
+  const worstRunSource = useMemo(
+    () => getWorstRunSource(history, sections),
+    [history, sections],
+  );
+
+  const customTargetSource = useMemo(
+    () =>
+      getCustomTargetSource(
+        customTargetSplits,
+        sections,
+      ),
+    [customTargetSplits, sections],
+  );
+
+  const activeComparisonSource = useMemo<ComparisonSource>(() => {
+    switch (category.compare_mode) {
+      case "custom_target":
+        return customTargetSource;
+
+      case "latest_run":
+        return latestRunSource;
+
+      case "worst_run":
+        return worstRunSource;
+
+      case "personal_best":
+      default:
+        return personalBestSource;
+    }
+  }, [
+    category.compare_mode,
+    customTargetSource,
+    latestRunSource,
+    worstRunSource,
+    personalBestSource,
+  ]);
+
+    const comparisonResults = useMemo(
+    () =>
+      timer
+        ? compareTimerProgress(
+            timer,
+            sections,
+            activeComparisonSource,
+            best,
+          )
+        : [],
+    [
+      timer,
+      sections,
+      activeComparisonSource,
+      best,
+    ],
   );
 
   const start = useCallback(() => {
@@ -414,14 +507,10 @@ export function RunBoard({
   ]);
 
   function toggleSetting(
-      key:
-        | "show_best_of"
-        | "show_sum_of_best"
-        | "show_pb_delta"
-        | "show_section_delta"
-        | "compare_mode",
-      value: boolean | "pb" | "target",
-    ) {
+        key:
+          | "show_compare_delta",
+        value: boolean,
+      ) {
       const previous = settingsState;
       const next = { ...settingsState, [key]: value } as UserSettings;
 
@@ -507,19 +596,18 @@ export function RunBoard({
                     
                     
           )}
-        {settingsState.show_sum_of_best && (
+        
           <div className="mt-2 text-[0.85em] text-zinc-300">
             Sum of Best: {sob == null ? "—" : formatTime(sob)}
             {category.target_time_ms != null && (
               <span className="ml-3 text-zinc-500">Target: {formatTime(category.target_time_ms)}</span>
             )}
-          </div>
-        )}
+          </div>        
 
         <ol className="mt-3 space-y-1">
           {sections.map((section, index) => {
             const recorded = timerSegments[index] ?? null;
-
+            const comparison = comparisonResults[index] ?? null;
             const isCurrent =
               (timer?.status === "running" ||
                 timer?.status === "paused") &&
@@ -533,31 +621,36 @@ export function RunBoard({
                   : isCurrent
                     ? currentSegmentMs
                     : null;
-            const compareMs =
-              settingsState.compare_mode === "target" ? targetSegment : best[section.id];
-            const pb = best[section.id];
+           const pb = best[section.id];
+
             let tone: DeltaTone = "neutral";
-            let delta: number | null = null;
-            if (segment != null && compareMs != null) {
-              delta = segment - compareMs;
-              if (pb != null && segment <= pb) tone = "gold";
-              else if (delta < 0) tone = "green";
-              else if (delta > 0) tone = "red";
-            }
-            const previousRecorded =
-              index > 0
-                ? timerSegments[index - 1] ?? null
-                : null;
 
-            const prevSegment =
-              previousRecorded?.type === "split"
-                ? previousRecorded.timeMs
-                : null;
-            const sectionDelta =
-              settingsState.show_section_delta && segment != null && prevSegment != null
-                ? segment - prevSegment
-                : null;
+                if (comparison?.isBestSegment) {
+                  tone = "gold";
+                } else if (
+                  comparison?.position === "ahead" &&
+                  comparison.trend === "gaining"
+                ) {
+                  tone = "ahead-gaining";
+                } else if (
+                  comparison?.position === "ahead" &&
+                  comparison.trend === "losing"
+                ) {
+                  tone = "ahead-losing";
+                } else if (
+                  comparison?.position === "behind" &&
+                  comparison.trend === "gaining"
+                ) {
+                  tone = "behind-gaining";
+                } else if (
+                  comparison?.position === "behind" &&
+                  comparison.trend === "losing"
+                ) {
+                  tone = "behind-losing";
+                }
 
+            const delta = comparison?.deltaMs ?? null;
+            
             return (
               <li
                 key={section.id}
@@ -568,19 +661,15 @@ export function RunBoard({
                 <span className="truncate">
                   {index + 1}. {section.name}
                 </span>
-                {settingsState.show_best_of && (
-                  <span className="font-mono text-[0.85em] text-zinc-400 tabular-nums">
-                    {pb == null ? "—" : formatTime(pb)}
-                  </span>
-                )}
                 <span className={`font-mono tabular-nums ${toneClass(tone)}`}>
-                  {segment == null ? "—" : formatTime(segment)}
+                  {comparison?.actualTimeMs != null
+                  ? formatTime(comparison.actualTimeMs)
+                  : comparison?.comparisonTimeMs != null
+                    ? formatTime(comparison.comparisonTimeMs)
+                    : "—"}
                 </span>
                 <span className={`w-28 text-right font-mono text-[0.85em] tabular-nums ${toneClass(tone)}`}>
-                  {settingsState.show_pb_delta && delta != null ? formatSignedDelta(delta) : ""}
-                  {sectionDelta != null && (
-                    <div className="text-zinc-400">{formatSignedDelta(sectionDelta)}</div>
-                  )}
+                  {settingsState.show_compare_delta && delta != null ? formatSignedDelta(delta) : ""}
                 </span>
               </li>
             );
@@ -652,50 +741,15 @@ export function RunBoard({
             </div>
 
             <div className="mt-4 grid gap-2 text-sm text-zinc-300 sm:grid-cols-2">
-              <label className="flex items-center gap-2">
+                <label className="flex items-center gap-2">
                 <input
                   type="checkbox"
-                  checked={settingsState.show_best_of}
-                  onChange={(e) => toggleSetting("show_best_of", e.target.checked)}
-                />
-                Best of
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={settingsState.show_sum_of_best}
-                  onChange={(e) => toggleSetting("show_sum_of_best", e.target.checked)}
-                />
-                Sum of Best
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={settingsState.show_pb_delta}
-                  onChange={(e) => toggleSetting("show_pb_delta", e.target.checked)}
+                  checked={settingsState.show_compare_delta}
+                  onChange={(e) => toggleSetting("show_compare_delta", e.target.checked)}
                 />
                 Delta vs compare
               </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={settingsState.show_section_delta}
-                  onChange={(e) => toggleSetting("show_section_delta", e.target.checked)}
-                />
-                Delta between sections
-              </label>
-              <label className="flex items-center gap-2 sm:col-span-2">
-                Compare to
-                <select
-                  className="rounded bg-zinc-900 px-2 py-1"
-                  value={settingsState.compare_mode}
-                  onChange={(e) => toggleSetting("compare_mode", e.target.value as "pb" | "target")}
-                >
-                  <option value="pb">Personal best</option>
-                  <option value="target">Custom target (even splits)</option>
-                </select>
-              </label>
-            </div>
+              </div>
           </>
         )}
       </div>
@@ -705,8 +759,11 @@ export function RunBoard({
 
 function toneClass(tone: DeltaTone) {
   if (tone === "gold") return "text-amber-300";
-  if (tone === "green") return "text-emerald-400";
-  if (tone === "red") return "text-red-400";
+  if (tone === "ahead-gaining") return "text-emerald-400";
+  if (tone === "ahead-losing") return "text-emerald-200";
+  if (tone === "behind-gaining") return "text-red-300";
+  if (tone === "behind-losing") return "text-red-500";
+
   return "text-zinc-100";
 }
 

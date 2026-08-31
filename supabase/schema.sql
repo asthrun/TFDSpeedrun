@@ -23,7 +23,7 @@ create table public.user_settings (
   font_family text not null default 'geist-mono',
   show_best_of boolean not null default true,
   show_sum_of_best boolean not null default true,
-  show_pb_delta boolean not null default true,
+  show_compare_delta boolean not null default true,
   show_section_delta boolean not null default false,
   compare_mode text not null default 'pb' check (compare_mode in ('pb', 'target')),
   shortcut_start text,

@@ -20,7 +20,7 @@ const SETTING_FIELDS = [
   "font_family",
   "show_best_of",
   "show_sum_of_best",
-  "show_pb_delta",
+  "show_compare_delta",
   "show_section_delta",
   "compare_mode",
 ] as const;
