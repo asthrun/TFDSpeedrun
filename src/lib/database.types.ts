@@ -348,7 +348,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      increment_category_attempt_count: {
+        Args: { p_category_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
@@ -482,9 +485,20 @@ export const Constants = {
   },
 } as const
 
-export type UserSettings = Database["public"]["Tables"]["user_settings"]["Row"];
-export type GameProfile = Database["public"]["Tables"]["game_profiles"]["Row"];
-export type Category = Database["public"]["Tables"]["categories"]["Row"];
-export type Section = Database["public"]["Tables"]["sections"]["Row"];
-export type Run = Database["public"]["Tables"]["runs"]["Row"];
-export type RunSplit = Database["public"]["Tables"]["run_splits"]["Row"];
+export type UserSettings =
+  Database["public"]["Tables"]["user_settings"]["Row"];
+
+export type GameProfile =
+  Database["public"]["Tables"]["game_profiles"]["Row"];
+
+export type Category =
+  Database["public"]["Tables"]["categories"]["Row"];
+
+export type Section =
+  Database["public"]["Tables"]["sections"]["Row"];
+
+export type Run =
+  Database["public"]["Tables"]["runs"]["Row"];
+
+export type RunSplit =
+  Database["public"]["Tables"]["run_splits"]["Row"];

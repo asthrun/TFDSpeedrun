@@ -13,6 +13,7 @@ export type SectionProgress =
   | {
       sectionId: string;
       type: "skip";
+      timeMs: number;
     };
 
 export type TimerState = {
@@ -188,8 +189,9 @@ export function skipTimer(
   const nextProgress: SectionProgress[] = [
     ...state.progress,
     {
-      sectionId: currentSection.id,
-      type: "skip",
+    sectionId: currentSection.id,
+    type: "skip",
+    timeMs: getElapsedMs(state, now),
     },
   ];
 
@@ -287,4 +289,31 @@ export function isFinalizable(
     state.finalizeAt !== null &&
     now >= state.finalizeAt
   );
+}
+
+export type TimerSegment = {
+  sectionId: string;
+  type: "split" | "skip";
+  timeMs: number;
+};
+
+export function getTimerSegments(
+  state: TimerState,
+): TimerSegment[] {
+  let previousTimeMs = 0;
+
+  return state.progress.map((entry) => {
+    const segmentTimeMs = Math.max(
+      0,
+      entry.timeMs - previousTimeMs,
+    );
+
+    previousTimeMs = entry.timeMs;
+
+    return {
+      sectionId: entry.sectionId,
+      type: entry.type,
+      timeMs: segmentTimeMs,
+    };
+  });
 }
