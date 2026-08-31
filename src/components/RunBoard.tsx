@@ -28,7 +28,6 @@ import {
   finalizeTimerRun,
   incrementAttemptCount,
 } from "@/app/actions/runs";
-import { abandonRun, persistLiveRun } from "@/app/actions/runs";
 import { updateSettings } from "@/app/actions/settings";
 import type { Category, Section, UserSettings } from "@/lib/database.types";
 
