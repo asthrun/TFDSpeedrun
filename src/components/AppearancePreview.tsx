@@ -75,7 +75,7 @@ export function AppearancePreview({
                 className="truncate text-sm"
                 style={getTextStyle(appearance, "primary")}
                 >
-                The First Descendant
+                Example Game Profile
                 </div>
             )}
 
@@ -93,7 +93,7 @@ export function AppearancePreview({
                 className="mt-1 text-sm"
                 style={getTextStyle(appearance, "secondary")}
                 >
-                Compare To: Personal Best
+                Compare To: Example Comparison
                 </div>
             )}
             </div>
