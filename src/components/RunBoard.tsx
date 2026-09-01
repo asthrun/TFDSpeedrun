@@ -413,14 +413,70 @@ export function RunBoard({
   const reset = useCallback(() => {
     if (!live || !timer) return;
 
-    if (timer.status === "finished") {
-      return;
-    }
-
     const nextTimer = resetTimer(timer);
 
     if (nextTimer === timer) return;
 
+    /*
+    * A finished run is complete, not incomplete.
+    * Reset finalizes it immediately instead of
+    * waiting for the normal 10-second window.
+    */
+    if (timer.status === "finished") {
+      if (timer.startedAt === null) {
+        return;
+      }
+
+      finalizingStartedAt.current =
+        timer.startedAt;
+
+      setSaveStatus("saving");
+      setSaveError(null);
+
+      void (async () => {
+        try {
+          const result =
+            await finalizeTimerRun(
+              category.id,
+              timer,
+            );
+
+          if (result.error) {
+            finalizingStartedAt.current =
+              null;
+
+            setSaveStatus("error");
+            setSaveError(result.error);
+
+            return;
+          }
+
+          saveLiveState(null);
+
+          setSaveStatus("saved");
+          setSaveError(null);
+        } catch (error) {
+          console.error(
+            "Unexpected error while finalizing run on reset:",
+            error,
+          );
+
+          finalizingStartedAt.current =
+            null;
+
+          setSaveStatus("error");
+          setSaveError(
+            "Your run could not be saved. Please try again.",
+          );
+        }
+      })();
+
+      return;
+    }
+
+    /*
+    * Running/paused runs are incomplete.
+    */
     finalizingStartedAt.current = null;
 
     if (!settingsState.save_incomplete_runs) {
