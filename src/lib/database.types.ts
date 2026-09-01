@@ -303,6 +303,11 @@ export type Database = {
           updated_at: string
           user_id: string
           visible_split_count: number | null
+          shortcut_start_split: string | null
+          shortcut_pause: string | null
+          shortcut_skip: string | null
+          double_tap_delay_ms: number
+          save_incomplete_runs: boolean
         }
         Insert: {
           chroma_hex?: string
@@ -323,6 +328,11 @@ export type Database = {
           updated_at?: string
           user_id: string
           visible_split_count?: number | null
+          shortcut_start_split?: string | null
+          shortcut_pause?: string | null
+          shortcut_skip?: string | null
+          double_tap_delay_ms?: number
+          save_incomplete_runs?: boolean
         }
         Update: {
           chroma_hex?: string
@@ -343,6 +353,11 @@ export type Database = {
           updated_at?: string
           user_id?: string
           visible_split_count?: number | null
+          shortcut_start_split?: string | null
+          shortcut_pause?: string | null
+          shortcut_skip?: string | null
+          double_tap_delay_ms?: number
+          save_incomplete_runs?: boolean
         }
         Relationships: []
       }

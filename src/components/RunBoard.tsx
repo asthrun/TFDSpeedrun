@@ -29,6 +29,7 @@ import {
 import {
   finalizeTimerRun,
   incrementAttemptCount,
+  saveIncompleteTimerRun,
 } from "@/app/actions/runs";
 import { updateSettings } from "@/app/actions/settings";
 import type { Category, Section, UserSettings } from "@/lib/database.types";
@@ -84,6 +85,9 @@ export function RunBoard({
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const finalizingStartedAt = useRef<number | null>(null);
+  const lastKeyboardActionAt = useRef<
+    Record<string, number>
+  >({});
 
   useEffect(() => {
     setLive(readTimerLiveRun(category.id));
@@ -409,83 +413,70 @@ export function RunBoard({
   const reset = useCallback(() => {
     if (!live || !timer) return;
 
+    if (timer.status === "finished") {
+      return;
+    }
+
     const nextTimer = resetTimer(timer);
 
     if (nextTimer === timer) return;
 
     finalizingStartedAt.current = null;
 
-    saveLiveState(null);
+    if (!settingsState.save_incomplete_runs) {
+      saveLiveState(null);
 
-    setSaveStatus("idle");
-    setSaveError(null);
-  }, [live, saveLiveState, timer]);
+      setSaveStatus("idle");
+      setSaveError(null);
 
-  useEffect(() => {
-    if (
-      !live ||
-      !timer ||
-      !isFinalizable(timer, now) ||
-      timer.startedAt === null
-    ) {
       return;
     }
-
-    if (finalizingStartedAt.current === timer.startedAt) {
-      return;
-    }
-
-    finalizingStartedAt.current = timer.startedAt;
 
     setSaveStatus("saving");
     setSaveError(null);
 
     void (async () => {
       try {
-        const result = await finalizeTimerRun(
-          category.id,
-          timer,
-        );
+        const result =
+          await saveIncompleteTimerRun(
+            category.id,
+            timer,
+          );
 
         if (result.error) {
-          finalizingStartedAt.current = null;
           setSaveStatus("error");
           setSaveError(result.error);
           return;
         }
 
+        saveLiveState(null);
+
         setSaveStatus("saved");
         setSaveError(null);
-
-        clearLiveRun(category.id);
-
-        setLive((current) => {
-          if (
-            current?.timer.startedAt !== timer.startedAt
-          ) {
-            return current;
-          }
-
-          return null;
-        });
       } catch (error) {
         console.error(
-          "Unexpected error while finalizing run:",
+          "Unexpected error while saving incomplete run:",
           error,
         );
 
-        finalizingStartedAt.current = null;
         setSaveStatus("error");
         setSaveError(
-          "Your run could not be saved. Please try again.",
+          "Your incomplete run could not be saved. Please try again.",
         );
       }
     })();
-  }, [category.id, live, now, timer]);
+  }, [
+    category.id,
+    live,
+    saveLiveState,
+    settingsState.save_incomplete_runs,
+    timer,
+  ]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
+      const target =
+        event.target as HTMLElement | null;
 
       if (
         target &&
@@ -499,45 +490,110 @@ export function RunBoard({
         return;
       }
 
-      const map: Record<string, () => void> = {};
+      const actions: Record<
+        string,
+        {
+          id: string;
+          run: () => void;
+        }
+      > = {};
 
-      // Temporary compatibility with the existing settings model.
-      if (settingsState.shortcut_start) {
-        map[settingsState.shortcut_start] =
-          timer?.status === "running"
-            ? split
-            : start;
+      if (settingsState.shortcut_start_split) {
+        actions[
+          settingsState.shortcut_start_split
+        ] = {
+          id: "start_split",
+          run:
+            timer?.status === "running"
+              ? split
+              : start,
+        };
       }
 
-      if (settingsState.shortcut_split) {
-        map[settingsState.shortcut_split] = split;
-      }
-
-      if (settingsState.shortcut_reset) {
-        map[settingsState.shortcut_reset] = reset;
+      if (settingsState.shortcut_pause) {
+        actions[
+          settingsState.shortcut_pause
+        ] = {
+          id: "pause",
+          run: pauseResume,
+        };
       }
 
       if (settingsState.shortcut_undo) {
-        map[settingsState.shortcut_undo] = undo;
+        actions[
+          settingsState.shortcut_undo
+        ] = {
+          id: "undo",
+          run: undo,
+        };
       }
 
-      if (settingsState.shortcut_next_section) {
-        map[settingsState.shortcut_next_section] = skip;
+      if (settingsState.shortcut_skip) {
+        actions[
+          settingsState.shortcut_skip
+        ] = {
+          id: "skip",
+          run: skip,
+        };
       }
 
-      const action = map[event.code];
+      if (settingsState.shortcut_reset) {
+        actions[
+          settingsState.shortcut_reset
+        ] = {
+          id: "reset",
+          run: reset,
+        };
+      }
+
+      const action = actions[event.code];
 
       if (!action) return;
 
       event.preventDefault();
-      action();
+
+      if (event.repeat) {
+        return;
+      }
+
+      const delay = Math.max(
+        0,
+        Number(
+          settingsState.double_tap_delay_ms,
+        ) || 0,
+      );
+
+      const actionNow = Date.now();
+
+      const previousActionAt =
+        lastKeyboardActionAt.current[
+          action.id
+        ] ?? 0;
+
+      if (
+        delay > 0 &&
+        actionNow - previousActionAt < delay
+      ) {
+        return;
+      }
+
+      lastKeyboardActionAt.current[
+        action.id
+      ] = actionNow;
+
+      action.run();
     };
 
     window.addEventListener("keydown", onKey);
 
-    return () =>
-      window.removeEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener(
+        "keydown",
+        onKey,
+      );
+    };
   }, [
+    pauseResume,
     reset,
     settingsState,
     skip,

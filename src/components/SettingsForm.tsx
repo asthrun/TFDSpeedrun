@@ -209,7 +209,9 @@ export function SettingsForm({ settings }: { settings: UserSettings }) {
       </section>
 
       <section>
-        <h2 className="text-lg font-medium">Keyboard shortcuts</h2>
+        <h2 className="text-lg font-medium">
+          Controls
+        </h2>
         <p className="text-sm text-zinc-400">Empty by default. Click a field, then press a key. Clear is allowed.</p>
         <form
           action={async (formData) => {
@@ -242,20 +244,129 @@ export function SettingsForm({ settings }: { settings: UserSettings }) {
           }}
           className="mt-3 grid gap-3"
         >
-          <ShortcutInput name="shortcut_start" label="Start" defaultValue={settings.shortcut_start} />
-          <ShortcutInput name="shortcut_stop" label="Stop" defaultValue={settings.shortcut_stop} />
-          <ShortcutInput name="shortcut_split" label="Split" defaultValue={settings.shortcut_split} />
-          <ShortcutInput name="shortcut_reset" label="Reset" defaultValue={settings.shortcut_reset} />
-          <ShortcutInput name="shortcut_undo" label="Undo" defaultValue={settings.shortcut_undo} />
           <ShortcutInput
-            name="shortcut_next_section"
-            label="Next section (missed split)"
-            defaultValue={settings.shortcut_next_section}
+            name="shortcut_start_split"
+            label="Start / Split / Finish"
+            defaultValue={
+              settings.shortcut_start_split
+            }
+          />
+
+          <ShortcutInput
+            name="shortcut_pause"
+            label="Pause / Resume"
+            defaultValue={
+              settings.shortcut_pause
+            }
+          />
+
+          <ShortcutInput
+            name="shortcut_undo"
+            label="Undo Split"
+            defaultValue={
+              settings.shortcut_undo
+            }
+          />
+
+          <ShortcutInput
+            name="shortcut_skip"
+            label="Skip Split"
+            defaultValue={
+              settings.shortcut_skip
+            }
+          />
+
+          <ShortcutInput
+            name="shortcut_reset"
+            label="Reset"
+            defaultValue={
+              settings.shortcut_reset
+            }
           />
           <button type="submit" className="w-fit rounded-lg bg-zinc-100 px-4 py-2 font-medium text-zinc-950">
             Save shortcuts
           </button>
         </form>
+
+        <div className="mt-6 grid gap-4">
+          <label className="grid gap-1 text-sm">
+            Double Tap Prevention
+
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min="0"
+                max="5000"
+                step="1"
+                defaultValue={
+                  settings.double_tap_delay_ms
+                }
+                disabled={pending}
+                className="w-32 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"
+                onBlur={(e) => {
+                  const value = Number(
+                    e.target.value
+                  );
+
+                  startTransition(async () => {
+                    await saveSetting(
+                      {
+                        double_tap_delay_ms:
+                          value,
+                      },
+                      "Double Tap Prevention saved.",
+                    );
+                  });
+                }}
+              />
+
+              <span className="text-zinc-400">
+                ms
+              </span>
+            </div>
+
+            <span className="text-xs text-zinc-500">
+              Prevents accidental repeated keyboard
+              actions. Set to 0 to disable.
+            </span>
+          </label>
+
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              defaultChecked={
+                settings.save_incomplete_runs
+              }
+              disabled={pending}
+              onChange={(e) => {
+                const checked = e.target.checked;
+
+                startTransition(async () => {
+                  await saveSetting(
+                    {
+                      save_incomplete_runs:
+                        checked,
+                    },
+                    "Incomplete run preference saved.",
+                  );
+                });
+              }}
+            />
+
+            <span>
+              <span className="block">
+                Save incomplete runs
+              </span>
+
+              <span className="block text-xs text-zinc-500">
+                Keep incomplete or invalid attempts
+                in History. They never count toward
+                comparisons or statistics.
+              </span>
+            </span>
+          </label>
+        </div>
+
       </section>
 
       <section>

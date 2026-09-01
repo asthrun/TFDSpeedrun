@@ -5,12 +5,11 @@ import { revalidatePath } from "next/cache";
 import type { UserSettings } from "@/lib/database.types";
 
 const SHORTCUT_FIELDS = [
-  "shortcut_start",
-  "shortcut_stop",
-  "shortcut_split",
+  "shortcut_start_split",
+  "shortcut_pause",
   "shortcut_reset",
   "shortcut_undo",
-  "shortcut_next_section",
+  "shortcut_skip",
 ] as const;
 
 const SETTING_FIELDS = [
@@ -24,6 +23,8 @@ const SETTING_FIELDS = [
   "show_section_delta",
   "compare_mode",
   "visible_split_count",
+  "double_tap_delay_ms",
+  "save_incomplete_runs",
 ] as const;
 
 type SettingField = (typeof SETTING_FIELDS)[number];
@@ -62,6 +63,23 @@ export async function updateSettings(
         }
       }
 
+      if ("double_tap_delay_ms" in safePatch) {
+        const value =
+          safePatch.double_tap_delay_ms;
+
+        if (
+          value !== undefined &&
+          (!Number.isInteger(value) ||
+            value < 0 ||
+            value > 5000)
+        ) {
+          return {
+            error:
+              "Double Tap Prevention must be a whole number between 0 and 5000 milliseconds.",
+          };
+        }
+      }
+
   const { error } = await supabase
     .from("user_settings")
     .update({
@@ -95,6 +113,28 @@ export async function updateShortcuts(formData: FormData) {
   for (const field of SHORTCUT_FIELDS) {
     const value = String(formData.get(field) ?? "").trim();
     patch[field] = value.length === 0 ? null : value;
+  }
+
+  const assignedShortcuts = Object.values(
+    patch
+  ).filter(
+    (value): value is string =>
+      value !== null
+  );
+
+  const normalizedShortcuts =
+    assignedShortcuts.map((value) =>
+      value.toLowerCase()
+    );
+
+  if (
+    new Set(normalizedShortcuts).size !==
+    normalizedShortcuts.length
+  ) {
+    return {
+      error:
+        "Each keyboard shortcut must use a different key.",
+    };
   }
 
   const { error } = await supabase

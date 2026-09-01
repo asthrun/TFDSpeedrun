@@ -25,15 +25,33 @@ create table public.user_settings (
   show_sum_of_best boolean not null default true,
   show_compare_delta boolean not null default true,
   show_section_delta boolean not null default false,
-  compare_mode text not null default 'pb' check (compare_mode in ('pb', 'target')),
+  compare_mode text not null default 'pb'
+    check (compare_mode in ('pb', 'target')),
   shortcut_start text,
   shortcut_stop text,
   shortcut_split text,
   shortcut_reset text,
   shortcut_undo text,
   shortcut_next_section text,
-  updated_at timestamptz not null default now()
+  shortcut_start_split text,
+  shortcut_pause text,
+  shortcut_skip text,
+  double_tap_delay_ms integer not null default 300,
+  save_incomplete_runs boolean not null default false,
   visible_split_count integer,
+  updated_at timestamptz not null default now(),
+
+  constraint user_settings_visible_split_count_check
+    check (
+      visible_split_count is null
+      or visible_split_count >= 1
+    )
+
+  Constraint user_settings_double_tap_delay_ms_check
+    check (
+      double_tap_delay_ms >= 0
+      and double_tap_delay_ms <= 5000
+    )
 );
 
 create table public.user_profiles (
@@ -56,11 +74,7 @@ create table public.user_profiles (
     )
 );
 
-  constraint user_settings_visible_split_count_check
-  check (
-    visible_split_count is null
-    or visible_split_count >= 1
-  )
+  
 
 create table public.game_profiles (
   id uuid primary key default gen_random_uuid(),
