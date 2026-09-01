@@ -33,6 +33,7 @@ create table public.user_settings (
   shortcut_undo text,
   shortcut_next_section text,
   updated_at timestamptz not null default now()
+  visible_split_count integer,
 );
 
 create table public.user_profiles (
@@ -54,6 +55,12 @@ create table public.user_profiles (
       )
     )
 );
+
+  constraint user_settings_visible_split_count_check
+  check (
+    visible_split_count is null
+    or visible_split_count >= 1
+  )
 
 create table public.game_profiles (
   id uuid primary key default gen_random_uuid(),

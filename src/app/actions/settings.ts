@@ -23,6 +23,7 @@ const SETTING_FIELDS = [
   "show_compare_delta",
   "show_section_delta",
   "compare_mode",
+  "visible_split_count",
 ] as const;
 
 type SettingField = (typeof SETTING_FIELDS)[number];
@@ -39,11 +40,27 @@ export async function updateSettings(
   const safePatch: SettingsPatch = {};
 
   for (const field of SETTING_FIELDS) {
-    if (field in patch) {
-      (safePatch as Record<string, unknown>)[field] =
-        patch[field];
-    }
-  }
+        if (field in patch) {
+          (safePatch as Record<string, unknown>)[field] =
+            patch[field];
+        }
+      }
+
+      if ("visible_split_count" in safePatch) {
+        const value =
+          safePatch.visible_split_count;
+
+        if (
+              value !== undefined &&
+              value !== null &&
+              (!Number.isInteger(value) || value < 1)
+            ) {
+          return {
+            error:
+              "Visible split count must be a positive whole number or All.",
+          };
+        }
+      }
 
   const { error } = await supabase
     .from("user_settings")
@@ -63,6 +80,7 @@ export async function updateSettings(
 
   revalidatePath("/settings");
   revalidatePath("/dashboard");
+  revalidatePath("/categories", "layout");
 
   return {
     error: null as string | null,

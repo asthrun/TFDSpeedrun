@@ -302,6 +302,7 @@ export type Database = {
           transparent_background: boolean
           updated_at: string
           user_id: string
+          visible_split_count: number | null
         }
         Insert: {
           chroma_hex?: string
@@ -321,6 +322,7 @@ export type Database = {
           transparent_background?: boolean
           updated_at?: string
           user_id: string
+          visible_split_count?: number | null
         }
         Update: {
           chroma_hex?: string
@@ -340,6 +342,7 @@ export type Database = {
           transparent_background?: boolean
           updated_at?: string
           user_id?: string
+          visible_split_count?: number | null
         }
         Relationships: []
       }

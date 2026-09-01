@@ -181,6 +181,16 @@ function getCompleteValidRuns(
   });
 }
 
+export function getValidRunCount(
+  runs: RunWithSplits[],
+  sections: Section[],
+): number {
+  return getCompleteValidRuns(
+    runs,
+    sections,
+  ).length;
+}
+
 function getRunTotalMs(
   run: RunWithSplits,
 ): number {

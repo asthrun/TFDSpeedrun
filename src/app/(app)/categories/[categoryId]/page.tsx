@@ -44,7 +44,6 @@ export default async function CategoryPage({
           settings={bundle.settings}
           history={bundle.history}
           customTargetSplits={bundle.customTargetSplits}
-          overlay
         />
       )}
     </main>

@@ -53,6 +53,65 @@ export function SettingsForm({ settings }: { settings: UserSettings }) {
   return (
     <div className="grid gap-8">
       <section>
+          <h2 className="text-lg font-medium">
+            Timer Layout
+          </h2>
+
+          <p className="mt-1 text-sm text-zinc-400">
+            Choose how much information is visible in the timer.
+          </p>
+
+          <div className="mt-3 grid gap-3">
+            <label className="grid gap-1 text-sm">
+              Visible splits
+
+              <select
+                defaultValue={
+                  settings.visible_split_count === null
+                    ? "all"
+                    : String(
+                        settings.visible_split_count,
+                      )
+                }
+                disabled={pending}
+                className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"
+                onChange={(e) => {
+                  const value =
+                    e.target.value === "all"
+                      ? null
+                      : Number(e.target.value);
+
+                  startTransition(async () => {
+                    await saveSetting(
+                      {
+                        visible_split_count: value,
+                      },
+                      "Visible splits saved.",
+                    );
+                  });
+                }}
+              >
+                <option value="all">All</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+                <option value="9">9</option>
+                <option value="10">10</option>
+              </select>
+
+              <span className="text-xs text-zinc-500">
+                All shows every section. A number keeps the
+                current section inside a scrolling window.
+              </span>
+            </label>
+          </div>
+        </section>
+      <section>
         <h2 className="text-lg font-medium">Appearance / OBS</h2>
         <div className="mt-3 grid gap-3">
           <label className="grid gap-1 text-sm">

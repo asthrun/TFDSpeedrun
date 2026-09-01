@@ -40,8 +40,10 @@ import {
   getPersonalBestSource,
   getSumOfBest,
   getWorstRunSource,
+  getValidRunCount,
   type ComparisonSource,
 } from "@/lib/comparison-engine";
+import { getVisibleSplits } from "@/lib/split-window";
 
 type Props = {
   category: Category;
@@ -126,6 +128,23 @@ export function RunBoard({
 
   const currentSectionIndex = timer?.progress.length ?? 0;
 
+  const visibleSplitCount =
+      settingsState.visible_split_count;
+
+  const visibleSplits = useMemo(
+    () =>
+      getVisibleSplits(
+        sections,
+        currentSectionIndex,
+        visibleSplitCount,
+      ),
+    [
+      sections,
+      currentSectionIndex,
+      visibleSplitCount,
+    ],
+  );
+
   const currentSegmentMs = useMemo(() => {
     if (
       !timer ||
@@ -150,16 +169,6 @@ export function RunBoard({
   const sob = useMemo(
     () => getSumOfBest(best, sections),
     [best, sections],
-  );
-
-    const comparisonBestSegments = useMemo(
-    () => getBestSegments(history, sections),
-    [history, sections],
-  );
-
-  const comparisonSumOfBest = useMemo(
-    () => getSumOfBest(comparisonBestSegments, sections),
-    [comparisonBestSegments, sections],
   );
 
    const personalBestSource = useMemo(
@@ -226,6 +235,38 @@ export function RunBoard({
       best,
     ],
   );
+
+  const currentComparison =
+  currentSectionIndex > 0
+    ? comparisonResults[
+        currentSectionIndex - 1
+      ] ?? null
+    : null;
+
+  const currentDeltaMs =
+    currentComparison?.deltaMs ?? null;
+
+  const validRunCount = useMemo(
+      () => getValidRunCount(history, sections),
+      [history, sections],
+  );
+
+  const compareModeLabel = useMemo(() => {
+      switch (category.compare_mode) {
+        case "custom_target":
+          return "Custom Target";
+
+        case "latest_run":
+          return "Latest Run";
+
+        case "worst_run":
+          return "Worst Run";
+
+        case "personal_best":
+        default:
+          return "Personal Best";
+      }
+    }, [category.compare_mode]);
 
   const start = useCallback(() => {
     if (sections.length === 0) return;
@@ -559,23 +600,85 @@ export function RunBoard({
       <div className={overlay ? "max-w-xl" : ""}>
         <div className="flex items-end justify-between gap-4">
           <div>
-            <div className="text-[0.7em] uppercase tracking-wide text-zinc-400">{profileName}</div>
-            <div className="text-[1.1em] font-semibold">{category.name}</div>
+            <div className="mb-4 flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="truncate text-sm text-zinc-400">
+                    {profileName}
+                  </div>
+
+                  <div className="truncate text-xl font-semibold text-zinc-100">
+                    {category.name}
+                  </div>
+
+                  <div className="mt-1 text-sm text-zinc-400">
+                    Compare To: {compareModeLabel}
+                  </div>
+                </div>
+
+                <div className="shrink-0 text-right">
+                  <div className="text-xs uppercase tracking-wide text-zinc-500">
+                    Valid / Attempts
+                  </div>
+
+                  <div className="text-lg font-semibold text-zinc-100">
+                    {validRunCount} / {category.attempt_count}
+                  </div>
+                </div>
+              </div>
           </div>
-          <div className="text-right">
-            <div className="font-mono text-[1.8em] tabular-nums leading-none">{formatTime(elapsedMs)}</div>
-            <div className="text-[0.7em] text-zinc-400">
-              {timer?.status === "running"
-                ? "Running"
-                : timer?.status === "paused"
-                  ? "Paused"
-                  : timer?.status === "finished"
-                    ? valid
-                      ? "Finished"
-                      : "Invalid"
-                    : "Idle"}
-            </div>
+          <div className="min-w-56 text-right">
+          <div className="text-xs uppercase tracking-wide text-zinc-500">
+            Section
           </div>
+
+          <div className="font-mono text-lg tabular-nums text-zinc-300">
+            {timer &&
+            (timer.status === "running" ||
+              timer.status === "paused")
+              ? formatTime(currentSegmentMs)
+              : "—"}
+          </div>
+
+          <div className="mt-2 text-xs uppercase tracking-wide text-zinc-500">
+            Total
+          </div>
+
+          <div className="font-mono text-[2.2em] font-semibold tabular-nums leading-none text-zinc-100">
+            {formatTime(elapsedMs)}
+          </div>
+
+          <div className="mt-2 text-xs uppercase tracking-wide text-zinc-500">
+            Delta
+          </div>
+
+          <div
+            className={`font-mono text-lg tabular-nums ${
+              currentDeltaMs == null
+                ? "text-zinc-400"
+                : currentDeltaMs < 0
+                  ? "text-emerald-400"
+                  : currentDeltaMs > 0
+                    ? "text-red-500"
+                    : "text-zinc-100"
+            }`}
+          >
+            {currentDeltaMs == null
+              ? "—"
+              : formatSignedDelta(currentDeltaMs)}
+          </div>
+
+          <div className="mt-2 text-[0.7em] text-zinc-400">
+            {timer?.status === "running"
+              ? "Running"
+              : timer?.status === "paused"
+                ? "Paused"
+                : timer?.status === "finished"
+                  ? valid
+                    ? "Finished"
+                    : "Invalid"
+                  : "Idle"}
+          </div>
+        </div>
         </div>
           {!overlay && saveStatus !== "idle" && (
                     <div className="mt-2 text-right text-xs">
@@ -597,15 +700,36 @@ export function RunBoard({
                     
           )}
         
-          <div className="mt-2 text-[0.85em] text-zinc-300">
-            Sum of Best: {sob == null ? "—" : formatTime(sob)}
-            {category.target_time_ms != null && (
-              <span className="ml-3 text-zinc-500">Target: {formatTime(category.target_time_ms)}</span>
-            )}
+          <div className="mt-3 flex items-center gap-6 text-[0.85em] text-zinc-300">
+            <div>
+              <span className="text-zinc-500">
+                Sum of Best:
+              </span>{" "}
+              {sob == null
+                ? "—"
+                : formatTime(sob)}
+            </div>
+
+            <div>
+              <span className="text-zinc-500">
+                Personal Best:
+              </span>{" "}
+              {personalBestSource.totalTimeMs == null
+                ? "—"
+                : formatTime(
+                    personalBestSource.totalTimeMs,
+                  )}
+            </div>
           </div>        
 
+        <div className="mt-3 grid grid-cols-[1fr_auto_auto] gap-4 border-b border-zinc-800 px-2 pb-1 text-xs uppercase tracking-wide text-zinc-500">
+          <div>Section</div>
+          <div className="text-right">Delta</div>
+          <div className="min-w-24 text-right">Time</div>
+        </div>
+
         <ol className="mt-3 space-y-1">
-          {sections.map((section, index) => {
+          {visibleSplits.map(({ item: section, index }) => {
             const recorded = timerSegments[index] ?? null;
             const comparison = comparisonResults[index] ?? null;
             const isCurrent =
@@ -621,8 +745,7 @@ export function RunBoard({
                   : isCurrent
                     ? currentSegmentMs
                     : null;
-           const pb = best[section.id];
-
+           
             let tone: DeltaTone = "neutral";
 
                 if (comparison?.isBestSegment) {
@@ -653,25 +776,43 @@ export function RunBoard({
             
             return (
               <li
-                key={section.id}
-                className={`grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 rounded px-2 py-1 ${
-                  isCurrent ? "bg-white/10" : ""
-                }`}
-              >
-                <span className="truncate">
-                  {index + 1}. {section.name}
-                </span>
-                <span className={`font-mono tabular-nums ${toneClass(tone)}`}>
-                  {comparison?.actualTimeMs != null
-                  ? formatTime(comparison.actualTimeMs)
-                  : comparison?.comparisonTimeMs != null
-                    ? formatTime(comparison.comparisonTimeMs)
-                    : "—"}
-                </span>
-                <span className={`w-28 text-right font-mono text-[0.85em] tabular-nums ${toneClass(tone)}`}>
-                  {settingsState.show_compare_delta && delta != null ? formatSignedDelta(delta) : ""}
-                </span>
-              </li>
+                  key={section.id}
+                  className={`grid grid-cols-[1fr_auto_auto] items-center gap-4 rounded px-2 py-1 ${
+                    isCurrent ? "bg-white/10" : ""
+                  }`}
+                >
+                  <span className="min-w-0 truncate">
+                    {index + 1}. {section.name}
+                  </span>
+
+                  <span
+                    className={`min-w-24 text-right font-mono text-[0.85em] tabular-nums ${toneClass(
+                      tone,
+                    )}`}
+                  >
+                    {settingsState.show_compare_delta &&
+                    delta != null
+                      ? formatSignedDelta(delta)
+                      : "—"}
+                  </span>
+
+                  <span
+                    className={`min-w-24 text-right font-mono tabular-nums ${toneClass(
+                      tone,
+                    )}`}
+                  >
+                    {comparison?.actualTimeMs != null
+                      ? formatTime(
+                          comparison.actualTimeMs,
+                        )
+                      : comparison?.comparisonTimeMs !=
+                          null
+                        ? formatTime(
+                            comparison.comparisonTimeMs,
+                          )
+                        : "—"}
+                  </span>
+                </li>
             );
           })}
         </ol>
@@ -787,3 +928,5 @@ function TimerButton({
     </button>
   );
 }
+
+ 
