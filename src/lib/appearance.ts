@@ -195,10 +195,10 @@ export function getTimerTextStyle(
 
   return {
     backgroundImage: `linear-gradient(
-      to bottom,
-      color-mix(in srgb, ${color} 70%, white 30%),
-      ${color} 55%,
-      color-mix(in srgb, ${color} 75%, black 25%)
+      180deg,
+      color-mix(in srgb, ${color} 85%, white 15%) 0%,
+      ${color} 50%,
+      color-mix(in srgb, ${color} 85%, black 15%) 100%
     )`,
     WebkitBackgroundClip: "text",
     backgroundClip: "text",
