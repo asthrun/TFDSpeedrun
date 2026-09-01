@@ -6,6 +6,7 @@ import { exportCsv } from "@/app/actions/export";
 import { ShortcutInput } from "@/components/ShortcutInput";
 import { FONT_OPTIONS } from "@/lib/fonts";
 import type { UserSettings } from "@/lib/database.types";
+import { AppearancePreview } from "@/components/AppearancePreview";
 
 export function SettingsForm({ settings }: { settings: UserSettings }) {
   
@@ -84,6 +85,47 @@ export function SettingsForm({ settings }: { settings: UserSettings }) {
     const [chromaKeyColor, setChromaKeyColor] = useState(
       settings.chroma_key_color
 );
+
+    const [fontFamily, setFontFamily] = useState(
+      settings.font_family
+    );
+
+    const [fontScale, setFontScale] = useState(
+      Number(settings.font_scale)
+    );
+
+    const [textShadow, setTextShadow] = useState(
+      settings.text_shadow
+    );
+
+const previewAppearance = {
+  ...settings,
+
+  timer_background_mode: timerBackgroundMode,
+  timer_background_color: timerBackgroundColor,
+  timer_background_opacity: timerBackgroundOpacity,
+
+  splits_background_mode: splitsBackgroundMode,
+  splits_background_color_1: splitsBackgroundColor1,
+  splits_background_color_2: splitsBackgroundColor2,
+  splits_background_opacity: splitsBackgroundOpacity,
+
+  primary_text_color: primaryTextColor,
+  secondary_text_color: secondaryTextColor,
+  ahead_gaining_color: aheadGainingColor,
+  ahead_losing_color: aheadLosingColor,
+  behind_gaining_color: behindGainingColor,
+  behind_losing_color: behindLosingColor,
+  best_segment_color: bestSegmentColor,
+  paused_color: pausedColor,
+
+  chroma_key_enabled: chromaKeyEnabled,
+  chroma_key_color: chromaKeyColor,
+
+  font_family: fontFamily,
+  font_scale: fontScale,
+  text_shadow: textShadow,
+};
 
   async function saveSetting(
     patch: Partial<UserSettings>,
@@ -350,10 +392,10 @@ export function SettingsForm({ settings }: { settings: UserSettings }) {
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
-              defaultChecked={settings.text_shadow}
+              checked={textShadow}
               onChange={(e) => {
                 const checked = e.target.checked;
-
+                setTextShadow(checked);
                 startTransition(async () => {
                   await saveSetting(
                     { text_shadow: checked },
@@ -708,16 +750,23 @@ export function SettingsForm({ settings }: { settings: UserSettings }) {
           <label className="grid gap-1 text-sm">
             Font
             <select
-              defaultValue={settings.font_family}
+              value={fontFamily}
               className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"
               onChange={(e) => {
                 const value = e.target.value;
+                const previous = fontFamily;
+
+                setFontFamily(value);
 
                 startTransition(async () => {
-                  await saveSetting(
+                  const saved = await saveSetting(
                     { font_family: value },
                     "Font saved."
                   );
+
+                  if (!saved) {
+                    setFontFamily(previous);
+                  }
                 });
               }}
             >
@@ -729,17 +778,18 @@ export function SettingsForm({ settings }: { settings: UserSettings }) {
             </select>
           </label>
           <label className="grid gap-1 text-sm">
-            Font size scale ({Number(settings.font_scale)})
+            Font size scale ({fontScale})
             <input
               type="range"
               min="0.75"
               max="2"
               step="0.05"
-              defaultValue={Number(settings.font_scale)}
-              onMouseUp={(e) => {
-                const value = Number(
-                  (e.target as HTMLInputElement).value
-                );
+              value={fontScale}
+              onChange={(e) => {
+                setFontScale(Number(e.target.value));
+              }}
+              onMouseUp={() => {
+                const value = fontScale;
 
                 startTransition(async () => {
                   await saveSetting(
@@ -750,6 +800,11 @@ export function SettingsForm({ settings }: { settings: UserSettings }) {
               }}
             />
           </label>
+        </div>
+        <div className="mt-8">
+          <AppearancePreview
+            appearance={previewAppearance}
+          />
         </div>
       </section>
 
