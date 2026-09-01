@@ -285,38 +285,52 @@ export type Database = {
       }
       user_settings: {
         Row: {
-          chroma_hex: string
-          compare_mode: string
+          
+          show_compare_delta: boolean
+
           font_family: string
           font_scale: number
+
           shortcut_reset: string | null
           shortcut_undo: string | null
-          show_best_of: boolean
-          show_compare_delta: boolean
-          show_section_delta: boolean
-          show_sum_of_best: boolean
-          transparent_background: boolean
-          updated_at: string
-          user_id: string
-          visible_split_count: number | null
           shortcut_start_split: string | null
           shortcut_pause: string | null
           shortcut_skip: string | null
+
           double_tap_delay_ms: number
           save_incomplete_runs: boolean
+          visible_split_count: number | null
+
+          updated_at: string
+          user_id: string
+          text_shadow: boolean
+
+          primary_text_color: string
+          secondary_text_color: string
+          ahead_gaining_color: string
+          ahead_losing_color: string
+          behind_gaining_color: string
+          behind_losing_color: string
+          best_segment_color: string
+          paused_color: string
+
+          timer_background_mode: string
+          timer_background_color: string
+          timer_background_opacity: number
+
+          splits_background_mode: string
+          splits_background_color_1: string
+          splits_background_color_2: string
+          splits_background_opacity: number
+
+          chroma_key_enabled: boolean
+          chroma_key_color: string
         }
-        Insert: {
-          chroma_hex?: string
-          compare_mode?: string
+        Insert: {          
           font_family?: string
           font_scale?: number          
           shortcut_reset?: string | null          
-          shortcut_undo?: string | null
-          show_best_of?: boolean
-          show_compare_delta?: boolean
-          show_section_delta?: boolean
-          show_sum_of_best?: boolean
-          transparent_background?: boolean
+          shortcut_undo?: string | null                   
           updated_at?: string
           user_id: string
           visible_split_count?: number | null
@@ -325,19 +339,37 @@ export type Database = {
           shortcut_skip?: string | null
           double_tap_delay_ms?: number
           save_incomplete_runs?: boolean
+         
+          
+          show_compare_delta?: boolean
+          text_shadow?: boolean
+
+          primary_text_color?: string
+          secondary_text_color?: string
+          ahead_gaining_color?: string
+          ahead_losing_color?: string
+          behind_gaining_color?: string
+          behind_losing_color?: string
+          best_segment_color?: string
+          paused_color?: string
+
+          timer_background_mode?: string
+          timer_background_color?: string
+          timer_background_opacity?: number
+
+          splits_background_mode?: string
+          splits_background_color_1?: string
+          splits_background_color_2?: string
+          splits_background_opacity?: number
+
+          chroma_key_enabled?: boolean
+          chroma_key_color?: string
         }
-        Update: {
-          chroma_hex?: string
-          compare_mode?: string
+        Update: {          
           font_family?: string
           font_scale?: number          
           shortcut_reset?: string | null        
-          shortcut_undo?: string | null
-          show_best_of?: boolean
-          show_compare_delta?: boolean
-          show_section_delta?: boolean
-          show_sum_of_best?: boolean
-          transparent_background?: boolean
+          shortcut_undo?: string | null          
           updated_at?: string
           user_id?: string
           visible_split_count?: number | null
@@ -346,6 +378,31 @@ export type Database = {
           shortcut_skip?: string | null
           double_tap_delay_ms?: number
           save_incomplete_runs?: boolean
+          
+          
+          show_compare_delta?: boolean
+          text_shadow?: boolean
+
+          primary_text_color?: string
+          secondary_text_color?: string
+          ahead_gaining_color?: string
+          ahead_losing_color?: string
+          behind_gaining_color?: string
+          behind_losing_color?: string
+          best_segment_color?: string
+          paused_color?: string
+
+          timer_background_mode?: string
+          timer_background_color?: string
+          timer_background_opacity?: number
+
+          splits_background_mode?: string
+          splits_background_color_1?: string
+          splits_background_color_2?: string
+          splits_background_opacity?: number
+
+          chroma_key_enabled?: boolean
+          chroma_key_color?: string
         }
         Relationships: []
       }

@@ -17,16 +17,10 @@ drop table if exists public.user_settings cascade;
 
 create table public.user_settings (
   user_id uuid primary key references auth.users (id) on delete cascade,
-  chroma_hex text not null default '#00b140',
-  transparent_background boolean not null default false,
+  
   font_scale numeric not null default 1,
-  font_family text not null default 'geist-mono',
-  show_best_of boolean not null default true,
-  show_sum_of_best boolean not null default true,
-  show_compare_delta boolean not null default true,
-  show_section_delta boolean not null default false,
-  compare_mode text not null default 'pb'
-    check (compare_mode in ('pb', 'target')),
+  font_family text not null default 'geist-mono',  
+  show_compare_delta boolean not null default true,  
   shortcut_reset text,
   shortcut_undo text,
   shortcut_start_split text,
@@ -36,14 +30,37 @@ create table public.user_settings (
   save_incomplete_runs boolean not null default false,
   visible_split_count integer,
   updated_at timestamptz not null default now(),
+  text_shadow boolean not null default true,
+
+  primary_text_color text not null default '#ffffff',
+  secondary_text_color text not null default '#a1a1aa',
+
+  ahead_gaining_color text not null default '#4ade80',
+  ahead_losing_color text not null default '#86efac',
+  behind_gaining_color text not null default '#fca5a5',
+  behind_losing_color text not null default '#ef4444',
+  best_segment_color text not null default '#facc15',
+  paused_color text not null default '#71717a',
+
+  timer_background_mode text not null default 'transparent',
+  timer_background_color text not null default '#000000',
+  timer_background_opacity numeric not null default 1,
+
+  splits_background_mode text not null default 'transparent',
+  splits_background_color_1 text not null default '#18181b',
+  splits_background_color_2 text not null default '#27272a',
+  splits_background_opacity numeric not null default 1,
+
+  chroma_key_enabled boolean not null default false,
+  chroma_key_color text not null default '#00b140',
 
   constraint user_settings_visible_split_count_check
     check (
       visible_split_count is null
       or visible_split_count >= 1
-    )
+    ),
 
-  Constraint user_settings_double_tap_delay_ms_check
+  constraint user_settings_double_tap_delay_ms_check
     check (
       double_tap_delay_ms >= 0
       and double_tap_delay_ms <= 5000

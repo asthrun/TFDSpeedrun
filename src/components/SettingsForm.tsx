@@ -8,8 +8,7 @@ import { FONT_OPTIONS } from "@/lib/fonts";
 import type { UserSettings } from "@/lib/database.types";
 
 export function SettingsForm({ settings }: { settings: UserSettings }) {
-  const [chroma, setChroma] = useState(settings.chroma_hex);
-
+  
   const [message, setMessage] = useState<{
     type: "success" | "error";
     text: string;
@@ -113,51 +112,8 @@ export function SettingsForm({ settings }: { settings: UserSettings }) {
         </section>
       <section>
         <h2 className="text-lg font-medium">Appearance / OBS</h2>
-        <div className="mt-3 grid gap-3">
-          <label className="grid gap-1 text-sm">
-            Chromakey color
-            <div className="flex gap-2">
-              <input
-                type="color"
-                value={chroma}
-                onChange={(e) => setChroma(e.target.value)}
-              />
-              <input
-                value={chroma}
-                onChange={(e) => setChroma(e.target.value)}
-                className="flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 font-mono"
-              />
-              <button
-                type="button"
-                className="rounded-lg bg-zinc-100 px-3 text-sm font-medium text-zinc-950"
-                onClick={() =>
-                  startTransition(async () => {
-                    await saveSetting(
-                      { chroma_hex: chroma },
-                      "Chromakey saved."
-                    );
-                  })
-                }
-              >
-                Save
-              </button>
-            </div>
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              defaultChecked={settings.transparent_background}
-              onChange={(e) => {
-                const checked = e.target.checked;
-
-                startTransition(async () => {
-                  await saveSetting(
-                    { transparent_background: checked },
-                    "Transparent background saved."
-                  );
-                });
-              }}
-            />
+        <div className="mt-3 grid gap-3">          
+          <label className="flex items-center gap-2 text-sm">            
             Transparent background (OBS Browser Source)
           </label>
           <label className="grid gap-1 text-sm">

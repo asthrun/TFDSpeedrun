@@ -45,6 +45,11 @@ import {
   type ComparisonSource,
 } from "@/lib/comparison-engine";
 import { getVisibleSplits } from "@/lib/split-window";
+import {
+  getTextStyle,
+  getTimerBackgroundStyle,
+  getTimerTextStyle,
+} from "@/lib/appearance";
 
 type Props = {
   category: Category;
@@ -659,19 +664,24 @@ export function RunBoard({
     undo,
   ]);
 
-  function toggleSetting(
-        key:
-          | "show_compare_delta",
-        value: boolean,
-      ) {
+      function toggleSetting(
+      key: "show_compare_delta",
+      value: boolean,
+    ) {
       const previous = settingsState;
-      const next = { ...settingsState, [key]: value } as UserSettings;
+
+      const next = {
+        ...settingsState,
+        [key]: value,
+      } as UserSettings;
 
       setSettingsState(next);
 
       void (async () => {
         try {
-          const result = await updateSettings({ [key]: value });
+          const result = await updateSettings({
+            show_compare_delta: value,
+          });
 
           if (result.error) {
             setSettingsState(previous);
@@ -694,17 +704,12 @@ export function RunBoard({
   timer?.status === "finished"
     ? isTimerValid(timer)
     : false;
-  const background = overlay
-    ? settingsState.transparent_background
-      ? "transparent"
-      : settingsState.chroma_hex
-    : undefined;
-
+  
   return (
     <div
       className={overlay ? "min-h-screen p-4" : "rounded-xl border border-zinc-800 bg-zinc-950 p-4"}
       style={{
-        background,
+        ...getTimerBackgroundStyle(settingsState),
         fontFamily: fontCss(settingsState.font_family),
         fontSize: `${Number(settingsState.font_scale) * 16}px`,
       }}
@@ -714,15 +719,24 @@ export function RunBoard({
           <div>
             <div className="mb-4 flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <div className="truncate text-sm text-zinc-400">
+                  <div
+                    className="truncate text-sm"
+                    style={getTextStyle(settingsState, "primary")}
+                  >
                     {profileName}
                   </div>
 
-                  <div className="truncate text-xl font-semibold text-zinc-100">
+                  <div
+                    className="truncate text-xl font-semibold"
+                    style={getTextStyle(settingsState, "primary")}
+                  >
                     {category.name}
                   </div>
 
-                  <div className="mt-1 text-sm text-zinc-400">
+                  <div
+                    className="mt-1 text-sm"
+                    style={getTextStyle(settingsState, "secondary")}
+                  >
                     Compare To: {compareModeLabel}
                   </div>
                 </div>
@@ -743,7 +757,10 @@ export function RunBoard({
             Section
           </div>
 
-          <div className="font-mono text-lg tabular-nums text-zinc-300">
+          <div
+            className="text-lg tabular-nums"
+            style={getTextStyle(settingsState, "primary")}
+          >
             {timer &&
             (timer.status === "running" ||
               timer.status === "paused")
@@ -751,11 +768,17 @@ export function RunBoard({
               : "—"}
           </div>
 
-          <div className="mt-2 text-xs uppercase tracking-wide text-zinc-500">
+          <div
+            className="mt-2 text-xs uppercase tracking-wide"
+            style={getTextStyle(settingsState, "secondary")}
+          >
             Total
           </div>
 
-          <div className="font-mono text-[2.2em] font-semibold tabular-nums leading-none text-zinc-100">
+          <div
+            className="text-[2.2em] font-semibold tabular-nums leading-none"
+            style={getTimerTextStyle(settingsState, "primary")}
+          >
             {formatTime(elapsedMs)}
           </div>
 

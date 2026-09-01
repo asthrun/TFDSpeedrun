@@ -13,15 +13,9 @@ const SHORTCUT_FIELDS = [
 ] as const;
 
 const SETTING_FIELDS = [
-  "chroma_hex",
-  "transparent_background",
-  "font_scale",
   "font_family",
-  "show_best_of",
-  "show_sum_of_best",
+  "font_scale",
   "show_compare_delta",
-  "show_section_delta",
-  "compare_mode",
   "visible_split_count",
   "double_tap_delay_ms",
   "save_incomplete_runs",
