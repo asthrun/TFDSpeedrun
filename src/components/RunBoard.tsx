@@ -253,8 +253,15 @@ export function RunBoard({
       ] ?? null
     : null;
 
+  const hasComparison =
+  activeComparisonSource.totalTimeMs != null;
+
   const currentDeltaMs =
-    currentComparison?.deltaMs ?? null;
+    !timer || !hasComparison
+      ? null
+      : currentSectionIndex === 0
+        ? 0
+        : currentComparison?.deltaMs ?? null;
 
 const currentDeltaTone = getComparisonTone(
   currentComparison?.position ?? null,
