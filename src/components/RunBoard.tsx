@@ -780,7 +780,7 @@ const totalTimerTone = getComparisonTone(
       }}
     >
       <div className={overlay ? "max-w-xl" : ""}>
-        <div className="flex items-end justify-between gap-4">
+        <div className="grid grid-cols-[1fr_auto_auto] gap-4">
           <div>
             <div className="mb-4 flex items-start justify-between gap-4">
                 <div className="min-w-0">
@@ -823,7 +823,7 @@ const totalTimerTone = getComparisonTone(
                 </div>
               </div>
           </div>
-          <div className="min-w-56 pr-2 text-right">
+          <div className="col-start-3 min-w-24 pr-2 text-right">
           <div className="text-xs uppercase tracking-wide text-zinc-500">
             Section
           </div>
