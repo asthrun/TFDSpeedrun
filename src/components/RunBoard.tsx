@@ -772,7 +772,9 @@ const totalTimerTone = getComparisonTone(
     <div
       className={overlay ? "min-h-screen p-4" : "rounded-xl border border-zinc-800 bg-zinc-950 p-4"}
       style={{
-        ...getTimerBackgroundStyle(settingsState),
+        ...getTimerBackgroundStyle(settingsState, {
+          overlay,
+        }),
         fontFamily: fontCss(settingsState.font_family),
         fontSize: `${Number(settingsState.font_scale) * 16}px`,
       }}

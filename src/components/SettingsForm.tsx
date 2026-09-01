@@ -77,6 +77,14 @@ export function SettingsForm({ settings }: { settings: UserSettings }) {
       settings.paused_color
     );
 
+    const [chromaKeyEnabled, setChromaKeyEnabled] = useState(
+      settings.chroma_key_enabled
+    );
+
+    const [chromaKeyColor, setChromaKeyColor] = useState(
+      settings.chroma_key_color
+);
+
   async function saveSetting(
     patch: Partial<UserSettings>,
     successMessage: string
@@ -625,6 +633,75 @@ export function SettingsForm({ settings }: { settings: UserSettings }) {
               )
             }
           />
+        </div>
+
+        <div className="mt-6 grid gap-4">
+          <div>
+            <h3 className="text-lg font-semibold">
+              OBS Chroma Key
+            </h3>
+
+            <p className="mt-1 text-sm text-zinc-400">
+              Optional compatibility mode for OBS. Chroma Key only
+              affects the OBS overlay, not the normal timer page.
+            </p>
+          </div>
+
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={chromaKeyEnabled}
+              disabled={pending}
+              onChange={(e) => {
+                const checked = e.target.checked;
+
+                setChromaKeyEnabled(checked);
+
+                startTransition(async () => {
+                  const saved = await saveSetting(
+                    {
+                      chroma_key_enabled: checked,
+                    },
+                    checked
+                      ? "OBS Chroma Key enabled."
+                      : "OBS Chroma Key disabled."
+                  );
+
+                  if (!saved) {
+                    setChromaKeyEnabled(!checked);
+                  }
+                });
+              }}
+            />
+
+            <span>
+              <span className="block">
+                Enable Chroma Key
+              </span>
+
+              <span className="block text-xs text-zinc-500">
+                Replaces the OBS overlay background with a solid
+                key color.
+              </span>
+            </span>
+          </label>
+
+          {chromaKeyEnabled && (
+            <ColorSetting
+              label="Chroma Key color"
+              value={chromaKeyColor}
+              onChange={setChromaKeyColor}
+              disabled={pending}
+              onSave={() =>
+                saveSetting(
+                  {
+                    chroma_key_color: chromaKeyColor,
+                  },
+                  "OBS Chroma Key color saved."
+                )
+              }
+            />
+          )}
         </div>
 
         <div className="mt-3 grid gap-3">       

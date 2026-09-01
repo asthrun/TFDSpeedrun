@@ -128,8 +128,17 @@ export function withOpacity(
 
 export function getTimerBackgroundStyle(
   appearance: AppearanceSettings,
+  options: {
+    overlay?: boolean;
+  } = {},
 ): CSSProperties {
-  if (appearance.chroma_key_enabled) {
+  const { overlay = false } = options;
+
+  /*
+   * Chroma key is an OBS compatibility feature.
+   * It must never affect the normal website timer.
+   */
+  if (overlay && appearance.chroma_key_enabled) {
     return {
       backgroundColor: appearance.chroma_key_color,
     };

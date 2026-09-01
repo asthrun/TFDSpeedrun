@@ -46,6 +46,10 @@ const SETTING_FIELDS = [
   "behind_losing_color",
   "best_segment_color",
   "paused_color",
+  
+  // OBS
+  "chroma_key_enabled",
+  "chroma_key_color",
 ] as const;
 
 type SettingField = (typeof SETTING_FIELDS)[number];
