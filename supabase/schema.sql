@@ -27,12 +27,8 @@ create table public.user_settings (
   show_section_delta boolean not null default false,
   compare_mode text not null default 'pb'
     check (compare_mode in ('pb', 'target')),
-  shortcut_start text,
-  shortcut_stop text,
-  shortcut_split text,
   shortcut_reset text,
   shortcut_undo text,
-  shortcut_next_section text,
   shortcut_start_split text,
   shortcut_pause text,
   shortcut_skip text,

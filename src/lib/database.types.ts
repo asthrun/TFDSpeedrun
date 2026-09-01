@@ -289,11 +289,7 @@ export type Database = {
           compare_mode: string
           font_family: string
           font_scale: number
-          shortcut_next_section: string | null
           shortcut_reset: string | null
-          shortcut_split: string | null
-          shortcut_start: string | null
-          shortcut_stop: string | null
           shortcut_undo: string | null
           show_best_of: boolean
           show_compare_delta: boolean
@@ -313,12 +309,8 @@ export type Database = {
           chroma_hex?: string
           compare_mode?: string
           font_family?: string
-          font_scale?: number
-          shortcut_next_section?: string | null
-          shortcut_reset?: string | null
-          shortcut_split?: string | null
-          shortcut_start?: string | null
-          shortcut_stop?: string | null
+          font_scale?: number          
+          shortcut_reset?: string | null          
           shortcut_undo?: string | null
           show_best_of?: boolean
           show_compare_delta?: boolean
@@ -338,12 +330,8 @@ export type Database = {
           chroma_hex?: string
           compare_mode?: string
           font_family?: string
-          font_scale?: number
-          shortcut_next_section?: string | null
-          shortcut_reset?: string | null
-          shortcut_split?: string | null
-          shortcut_start?: string | null
-          shortcut_stop?: string | null
+          font_scale?: number          
+          shortcut_reset?: string | null        
           shortcut_undo?: string | null
           show_best_of?: boolean
           show_compare_delta?: boolean
