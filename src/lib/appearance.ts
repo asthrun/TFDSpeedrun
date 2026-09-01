@@ -196,16 +196,17 @@ export function getTimerTextStyle(
   return {
     backgroundImage: `linear-gradient(
       180deg,
-      color-mix(in srgb, ${color} 85%, white 15%) 0%,
+      color-mix(in srgb, ${color} 90%, white 10%) 0%,
       ${color} 50%,
-      color-mix(in srgb, ${color} 85%, black 15%) 100%
+      color-mix(in srgb, ${color} 90%, black 10%) 100%
     )`,
     WebkitBackgroundClip: "text",
     backgroundClip: "text",
-    color: color,
+    color,
     WebkitTextFillColor: "transparent",
-    textShadow: appearance.text_shadow
-      ? "0 1px 3px rgba(0, 0, 0, 0.9)"
+    textShadow: "none",
+    filter: appearance.text_shadow
+      ? "drop-shadow(0 1px 1px rgba(0, 0, 0, 0.55))"
       : "none",
   };
 }
