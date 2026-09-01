@@ -19,6 +19,12 @@ const SETTING_FIELDS = [
   "visible_split_count",
   "double_tap_delay_ms",
   "save_incomplete_runs",
+
+  // Appearance
+  "text_shadow",
+  "timer_background_mode",
+  "timer_background_color",
+  "timer_background_opacity",
 ] as const;
 
 type SettingField = (typeof SETTING_FIELDS)[number];
