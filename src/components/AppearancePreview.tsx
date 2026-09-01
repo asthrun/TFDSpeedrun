@@ -10,6 +10,9 @@ import {
 
 type Props = {
   appearance: AppearanceSettings;
+  showGameProfile: boolean;
+  showCategory: boolean;
+  showCompareTo: boolean;
 };
 
 const PREVIEW_SPLITS = [
@@ -41,6 +44,9 @@ const PREVIEW_SPLITS = [
 
 export function AppearancePreview({
   appearance,
+  showGameProfile,
+  showCategory,
+  showCompareTo,
 }: Props) {
   return (
     <div className="grid gap-3">
@@ -64,27 +70,33 @@ export function AppearancePreview({
       >
         <div className="grid grid-cols-[1fr_auto_auto] gap-4">
           <div className="col-span-2 min-w-0">
-            <div
-              className="truncate text-sm"
-              style={getTextStyle(appearance, "primary")}
-            >
-              The First Descendant
-            </div>
+            {showGameProfile && (
+                <div
+                className="truncate text-sm"
+                style={getTextStyle(appearance, "primary")}
+                >
+                The First Descendant
+                </div>
+            )}
 
-            <div
-              className="truncate text-xl font-semibold"
-              style={getTextStyle(appearance, "primary")}
-            >
-              Example Category
-            </div>
+            {showCategory && (
+                <div
+                className="truncate text-xl font-semibold"
+                style={getTextStyle(appearance, "primary")}
+                >
+                Example Category
+                </div>
+            )}
 
-            <div
-              className="mt-1 text-sm"
-              style={getTextStyle(appearance, "secondary")}
-            >
-              Compare To: Personal Best
+            {showCompareTo && (
+                <div
+                className="mt-1 text-sm"
+                style={getTextStyle(appearance, "secondary")}
+                >
+                Compare To: Personal Best
+                </div>
+            )}
             </div>
-          </div>
 
           <div className="col-start-3 min-w-24 pr-2 text-right">
             <div

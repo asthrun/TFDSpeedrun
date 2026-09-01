@@ -98,6 +98,18 @@ export function SettingsForm({ settings }: { settings: UserSettings }) {
       settings.text_shadow
     );
 
+    const [showGameProfile, setShowGameProfile] = useState(
+      settings.show_game_profile
+    );
+
+    const [showCategory, setShowCategory] = useState(
+      settings.show_category
+    );
+
+    const [showCompareTo, setShowCompareTo] = useState(
+      settings.show_compare_to
+    );
+
 const previewAppearance = {
   ...settings,
 
@@ -175,16 +187,22 @@ const previewAppearance = {
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
-                defaultChecked={settings.show_game_profile}
+                checked={showGameProfile}
                 disabled={pending}
                 onChange={(e) => {
                   const checked = e.target.checked;
 
+                  setShowGameProfile(checked);
+
                   startTransition(async () => {
-                    await saveSetting(
+                    const saved = await saveSetting(
                       { show_game_profile: checked },
                       "Game Profile visibility saved.",
                     );
+
+                    if (!saved) {
+                      setShowGameProfile(!checked);
+                    }
                   });
                 }}
               />
@@ -195,16 +213,22 @@ const previewAppearance = {
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
-                defaultChecked={settings.show_category}
-                disabled={pending}
+                checked={showCategory}
+
                 onChange={(e) => {
                   const checked = e.target.checked;
 
+                  setShowCategory(checked);
+
                   startTransition(async () => {
-                    await saveSetting(
+                    const saved = await saveSetting(
                       { show_category: checked },
                       "Category visibility saved.",
                     );
+
+                    if (!saved) {
+                      setShowCategory(!checked);
+                    }
                   });
                 }}
               />
@@ -215,16 +239,22 @@ const previewAppearance = {
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
-                defaultChecked={settings.show_compare_to}
-                disabled={pending}
+                checked={showCompareTo}
+
                 onChange={(e) => {
                   const checked = e.target.checked;
 
+                  setShowCompareTo(checked);
+
                   startTransition(async () => {
-                    await saveSetting(
+                    const saved = await saveSetting(
                       { show_compare_to: checked },
                       "Compare To visibility saved.",
                     );
+
+                    if (!saved) {
+                      setShowCompareTo(!checked);
+                    }
                   });
                 }}
               />
@@ -804,6 +834,9 @@ const previewAppearance = {
         <div className="mt-8">
           <AppearancePreview
             appearance={previewAppearance}
+            showGameProfile={showGameProfile}
+            showCategory={showCategory}
+            showCompareTo={showCompareTo}
           />
         </div>
       </section>
