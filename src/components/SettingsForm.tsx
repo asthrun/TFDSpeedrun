@@ -14,6 +14,19 @@ export function SettingsForm({ settings }: { settings: UserSettings }) {
     text: string;
   } | null>(null);
 
+
+  const [timerBackgroundMode, setTimerBackgroundMode] = useState(
+      settings.timer_background_mode
+    );
+
+    const [timerBackgroundColor, setTimerBackgroundColor] = useState(
+      settings.timer_background_color
+    );
+
+    const [timerBackgroundOpacity, setTimerBackgroundOpacity] = useState(
+      Number(settings.timer_background_opacity)
+    );
+
   const [pending, startTransition] = useTransition();
 
   async function saveSetting(
@@ -112,10 +125,132 @@ export function SettingsForm({ settings }: { settings: UserSettings }) {
         </section>
       <section>
         <h2 className="text-lg font-medium">Appearance / OBS</h2>
-        <div className="mt-3 grid gap-3">          
-          <label className="flex items-center gap-2 text-sm">            
-            Transparent background (OBS Browser Source)
+        
+        <div className="grid gap-4">
+          <h3 className="text-lg font-semibold">
+            Timer Background
+          </h3>
+
+          <label className="grid gap-1 text-sm">
+            Background mode
+
+            <select
+              value={timerBackgroundMode}
+              onChange={(e) => {
+                const value = e.target.value;
+
+                if (
+                  value !== "transparent" &&
+                  value !== "solid"
+                ) {
+                  return;
+                }
+
+                setTimerBackgroundMode(value);
+
+                startTransition(async () => {
+                  await saveSetting(
+                    { timer_background_mode: value },
+                    "Timer background saved."
+                  );
+                });
+              }}
+              className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"
+            >
+              <option value="transparent">
+                Transparent
+              </option>
+
+              <option value="solid">
+                Solid color
+              </option>
+            </select>
           </label>
+
+          {timerBackgroundMode === "solid" && (
+            <>
+              <label className="grid gap-1 text-sm">
+                Background color
+
+                <input
+                  type="color"
+                  value={timerBackgroundColor}
+                  onChange={(e) =>
+                    setTimerBackgroundColor(e.target.value)
+                  }
+                />
+              </label>
+
+              <button
+                type="button"
+                className="w-fit rounded-lg bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-950"
+                onClick={() =>
+                  startTransition(async () => {
+                    await saveSetting(
+                      {
+                        timer_background_color:
+                          timerBackgroundColor,
+                      },
+                      "Timer background color saved."
+                    );
+                  })
+                }
+              >
+                Save color
+              </button>
+
+              <label className="grid gap-1 text-sm">
+                Opacity:{" "}
+                {Math.round(timerBackgroundOpacity * 100)}%
+
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={timerBackgroundOpacity}
+                  onChange={(e) =>
+                    setTimerBackgroundOpacity(
+                      Number(e.target.value)
+                    )
+                  }
+                  onMouseUp={() =>
+                    startTransition(async () => {
+                      await saveSetting(
+                        {
+                          timer_background_opacity:
+                            timerBackgroundOpacity,
+                        },
+                        "Timer background opacity saved."
+                      );
+                    })
+                  }
+                />
+              </label>
+            </>
+          )}
+
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              defaultChecked={settings.text_shadow}
+              onChange={(e) => {
+                const checked = e.target.checked;
+
+                startTransition(async () => {
+                  await saveSetting(
+                    { text_shadow: checked },
+                    "Text shadow saved."
+                  );
+                });
+              }}
+            />
+
+            Text shadow
+          </label>
+        </div>
+
+        <div className="mt-3 grid gap-3">       
           <label className="grid gap-1 text-sm">
             Font
             <select
@@ -380,5 +515,8 @@ export function SettingsForm({ settings }: { settings: UserSettings }) {
         </p>
       )}
     </div>
+
+    
   );
 }
+
