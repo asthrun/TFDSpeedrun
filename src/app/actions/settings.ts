@@ -25,6 +25,12 @@ const SETTING_FIELDS = [
   "timer_background_mode",
   "timer_background_color",
   "timer_background_opacity",
+
+  // Split backgrounds
+  "splits_background_mode",
+  "splits_background_color_1",
+  "splits_background_color_2",
+  "splits_background_opacity",
 ] as const;
 
 type SettingField = (typeof SETTING_FIELDS)[number];
