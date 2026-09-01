@@ -45,6 +45,38 @@ export function SettingsForm({ settings }: { settings: UserSettings }) {
       Number(settings.splits_background_opacity)
     );
 
+    const [primaryTextColor, setPrimaryTextColor] = useState(
+      settings.primary_text_color
+    );
+
+    const [secondaryTextColor, setSecondaryTextColor] = useState(
+      settings.secondary_text_color
+    );
+
+    const [aheadGainingColor, setAheadGainingColor] = useState(
+      settings.ahead_gaining_color
+    );
+
+    const [aheadLosingColor, setAheadLosingColor] = useState(
+      settings.ahead_losing_color
+    );
+
+    const [behindGainingColor, setBehindGainingColor] = useState(
+      settings.behind_gaining_color
+    );
+
+    const [behindLosingColor, setBehindLosingColor] = useState(
+      settings.behind_losing_color
+    );
+
+    const [bestSegmentColor, setBestSegmentColor] = useState(
+      settings.best_segment_color
+    );
+
+    const [pausedColor, setPausedColor] = useState(
+      settings.paused_color
+    );
+
   async function saveSetting(
     patch: Partial<UserSettings>,
     successMessage: string
@@ -420,6 +452,122 @@ export function SettingsForm({ settings }: { settings: UserSettings }) {
           )}
         </div>
 
+        <div className="mt-6 grid gap-4">
+          <div>
+            <h3 className="text-lg font-semibold">
+              Semantic Colors
+            </h3>
+
+            <p className="mt-1 text-sm text-zinc-400">
+              Choose how timer states and comparisons are displayed.
+            </p>
+          </div>
+
+          <ColorSetting
+            label="Primary text"
+            value={primaryTextColor}
+            onChange={setPrimaryTextColor}
+            disabled={pending}
+            onSave={() =>
+              saveSetting(
+                { primary_text_color: primaryTextColor },
+                "Primary text color saved."
+              )
+            }
+          />
+
+          <ColorSetting
+            label="Secondary text"
+            value={secondaryTextColor}
+            onChange={setSecondaryTextColor}
+            disabled={pending}
+            onSave={() =>
+              saveSetting(
+                { secondary_text_color: secondaryTextColor },
+                "Secondary text color saved."
+              )
+            }
+          />
+
+          <ColorSetting
+            label="Ahead + Gaining"
+            value={aheadGainingColor}
+            onChange={setAheadGainingColor}
+            disabled={pending}
+            onSave={() =>
+              saveSetting(
+                { ahead_gaining_color: aheadGainingColor },
+                "Ahead + Gaining color saved."
+              )
+            }
+          />
+
+          <ColorSetting
+            label="Ahead + Losing"
+            value={aheadLosingColor}
+            onChange={setAheadLosingColor}
+            disabled={pending}
+            onSave={() =>
+              saveSetting(
+                { ahead_losing_color: aheadLosingColor },
+                "Ahead + Losing color saved."
+              )
+            }
+          />
+
+          <ColorSetting
+            label="Behind + Gaining"
+            value={behindGainingColor}
+            onChange={setBehindGainingColor}
+            disabled={pending}
+            onSave={() =>
+              saveSetting(
+                { behind_gaining_color: behindGainingColor },
+                "Behind + Gaining color saved."
+              )
+            }
+          />
+
+          <ColorSetting
+            label="Behind + Losing"
+            value={behindLosingColor}
+            onChange={setBehindLosingColor}
+            disabled={pending}
+            onSave={() =>
+              saveSetting(
+                { behind_losing_color: behindLosingColor },
+                "Behind + Losing color saved."
+              )
+            }
+          />
+
+          <ColorSetting
+            label="Best Segment"
+            value={bestSegmentColor}
+            onChange={setBestSegmentColor}
+            disabled={pending}
+            onSave={() =>
+              saveSetting(
+                { best_segment_color: bestSegmentColor },
+                "Best Segment color saved."
+              )
+            }
+          />
+
+          <ColorSetting
+            label="Paused"
+            value={pausedColor}
+            onChange={setPausedColor}
+            disabled={pending}
+            onSave={() =>
+              saveSetting(
+                { paused_color: pausedColor },
+                "Paused color saved."
+              )
+            }
+          />
+        </div>
+
         <div className="mt-3 grid gap-3">       
           <label className="grid gap-1 text-sm">
             Font
@@ -449,7 +597,7 @@ export function SettingsForm({ settings }: { settings: UserSettings }) {
             <input
               type="range"
               min="0.75"
-              max="2.5"
+              max="2"
               step="0.05"
               defaultValue={Number(settings.font_scale)}
               onMouseUp={(e) => {
@@ -690,3 +838,52 @@ export function SettingsForm({ settings }: { settings: UserSettings }) {
   );
 }
 
+function ColorSetting({
+  label,
+  value,
+  onChange,
+  onSave,
+  disabled,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  onSave: () => Promise<boolean>;
+  disabled: boolean;
+}) {
+  const [pending, startTransition] = useTransition();
+
+  return (
+    <div className="grid gap-2">
+      <label className="grid gap-1 text-sm">
+        {label}
+
+        <div className="flex items-center gap-3">
+          <input
+            type="color"
+            value={value}
+            disabled={disabled || pending}
+            onChange={(e) => onChange(e.target.value)}
+          />
+
+          <span className="font-mono text-sm text-zinc-400">
+            {value}
+          </span>
+        </div>
+      </label>
+
+      <button
+        type="button"
+        disabled={disabled || pending}
+        className="w-fit rounded-lg bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-950 disabled:opacity-50"
+        onClick={() => {
+          startTransition(async () => {
+            await onSave();
+          });
+        }}
+      >
+        Save color
+      </button>
+    </div>
+  );
+}

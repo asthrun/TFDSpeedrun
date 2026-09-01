@@ -31,6 +31,16 @@ const SETTING_FIELDS = [
   "splits_background_color_1",
   "splits_background_color_2",
   "splits_background_opacity",
+
+  // Semantic colors
+  "primary_text_color",
+  "secondary_text_color",
+  "ahead_gaining_color",
+  "ahead_losing_color",
+  "behind_gaining_color",
+  "behind_losing_color",
+  "best_segment_color",
+  "paused_color",
 ] as const;
 
 type SettingField = (typeof SETTING_FIELDS)[number];

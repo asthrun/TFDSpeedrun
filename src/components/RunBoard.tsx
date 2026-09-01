@@ -46,6 +46,7 @@ import {
 } from "@/lib/comparison-engine";
 import { getVisibleSplits } from "@/lib/split-window";
 import {
+  getSemanticColor,
   getSplitBackgroundStyle,
   getTextStyle,
   getTimerBackgroundStyle,
@@ -64,14 +65,6 @@ type Props = {
   }[];
   overlay?: boolean;
 };
-
-type DeltaTone =
-  | "gold"
-  | "ahead-gaining"
-  | "ahead-losing"
-  | "behind-gaining"
-  | "behind-losing"
-  | "neutral";
 
 export function RunBoard({
   category,
@@ -255,6 +248,29 @@ export function RunBoard({
 
   const currentDeltaMs =
     currentComparison?.deltaMs ?? null;
+
+const currentDeltaTone:
+  | "primary"
+  | "ahead-gaining"
+  | "ahead-losing"
+  | "behind-gaining"
+  | "behind-losing"
+  | "best-segment" =
+  currentComparison?.isBestSegment
+    ? "best-segment"
+    : currentComparison?.position === "ahead" &&
+        currentComparison.trend === "gaining"
+      ? "ahead-gaining"
+      : currentComparison?.position === "ahead" &&
+          currentComparison.trend === "losing"
+        ? "ahead-losing"
+        : currentComparison?.position === "behind" &&
+            currentComparison.trend === "gaining"
+          ? "behind-gaining"
+          : currentComparison?.position === "behind" &&
+              currentComparison.trend === "losing"
+            ? "behind-losing"
+            : "primary";
 
   const validRunCount = useMemo(
       () => getValidRunCount(history, sections),
@@ -788,22 +804,28 @@ export function RunBoard({
           </div>
 
           <div
-            className={`font-mono text-lg tabular-nums ${
+            className="font-mono text-lg tabular-nums"
+            style={getTextStyle(
+              settingsState,
               currentDeltaMs == null
-                ? "text-zinc-400"
-                : currentDeltaMs < 0
-                  ? "text-emerald-400"
-                  : currentDeltaMs > 0
-                    ? "text-red-500"
-                    : "text-zinc-100"
-            }`}
+                ? "secondary"
+                : currentDeltaTone,
+            )}
           >
             {currentDeltaMs == null
               ? "—"
               : formatSignedDelta(currentDeltaMs)}
           </div>
 
-          <div className="mt-2 text-[0.7em] text-zinc-400">
+          <div
+            className="mt-2 text-[0.7em]"
+            style={getTextStyle(
+              settingsState,
+              timer?.status === "paused"
+                ? "paused"
+                : "secondary",
+            )}
+          >
             {timer?.status === "running"
               ? "Running"
               : timer?.status === "paused"
@@ -882,31 +904,37 @@ export function RunBoard({
                     ? currentSegmentMs
                     : null;
            
-            let tone: DeltaTone = "neutral";
+            let tone:
+                | "primary"
+                | "ahead-gaining"
+                | "ahead-losing"
+                | "behind-gaining"
+                | "behind-losing"
+                | "best-segment" = "primary";
 
-                if (comparison?.isBestSegment) {
-                  tone = "gold";
-                } else if (
-                  comparison?.position === "ahead" &&
-                  comparison.trend === "gaining"
-                ) {
-                  tone = "ahead-gaining";
-                } else if (
-                  comparison?.position === "ahead" &&
-                  comparison.trend === "losing"
-                ) {
-                  tone = "ahead-losing";
-                } else if (
-                  comparison?.position === "behind" &&
-                  comparison.trend === "gaining"
-                ) {
-                  tone = "behind-gaining";
-                } else if (
-                  comparison?.position === "behind" &&
-                  comparison.trend === "losing"
-                ) {
-                  tone = "behind-losing";
-                }
+              if (comparison?.isBestSegment) {
+                tone = "best-segment";
+              } else if (
+                comparison?.position === "ahead" &&
+                comparison.trend === "gaining"
+              ) {
+                tone = "ahead-gaining";
+              } else if (
+                comparison?.position === "ahead" &&
+                comparison.trend === "losing"
+              ) {
+                tone = "ahead-losing";
+              } else if (
+                comparison?.position === "behind" &&
+                comparison.trend === "gaining"
+              ) {
+                tone = "behind-gaining";
+              } else if (
+                comparison?.position === "behind" &&
+                comparison.trend === "losing"
+              ) {
+                tone = "behind-losing";
+              }
 
             const delta = comparison?.deltaMs ?? null;
             
@@ -927,11 +955,12 @@ export function RunBoard({
                     {index + 1}. {section.name}
                   </span>
 
-                  <span
-                    className={`min-w-24 text-right font-mono text-[0.85em] tabular-nums ${toneClass(
-                      tone,
-                    )}`}
-                  >
+                 <span
+                  className="min-w-24 text-right font-mono text-[0.85em] tabular-nums"
+                  style={{
+                    color: getSemanticColor(settingsState, tone),
+                  }}
+                >
                     {settingsState.show_compare_delta &&
                     delta != null
                       ? formatSignedDelta(delta)
@@ -939,9 +968,10 @@ export function RunBoard({
                   </span>
 
                   <span
-                    className={`min-w-24 text-right font-mono tabular-nums ${toneClass(
-                      tone,
-                    )}`}
+                    className="min-w-24 text-right font-mono tabular-nums"
+                    style={{
+                      color: getSemanticColor(settingsState, tone),
+                    }}
                   >
                     {comparison?.actualTimeMs != null
                       ? formatTime(
@@ -1038,16 +1068,6 @@ export function RunBoard({
       </div>
     </div>
   );
-}
-
-function toneClass(tone: DeltaTone) {
-  if (tone === "gold") return "text-amber-300";
-  if (tone === "ahead-gaining") return "text-emerald-400";
-  if (tone === "ahead-losing") return "text-emerald-200";
-  if (tone === "behind-gaining") return "text-red-300";
-  if (tone === "behind-losing") return "text-red-500";
-
-  return "text-zinc-100";
 }
 
 function TimerButton({
