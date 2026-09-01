@@ -196,14 +196,14 @@ export function getTimerTextStyle(
   return {
     backgroundImage: `linear-gradient(
       to bottom,
-      color-mix(in srgb, ${color} 135%, white 35%),
+      color-mix(in srgb, ${color} 70%, white 30%),
       ${color} 55%,
-      color-mix(in srgb, ${color} 70%, black 30%)
+      color-mix(in srgb, ${color} 75%, black 25%)
     )`,
     WebkitBackgroundClip: "text",
     backgroundClip: "text",
-    color: "transparent",
-    fontFamily: appearance.font_family,
+    color: color,
+    WebkitTextFillColor: "transparent",
     textShadow: appearance.text_shadow
       ? "0 1px 3px rgba(0, 0, 0, 0.9)"
       : "none",
