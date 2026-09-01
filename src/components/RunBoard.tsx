@@ -262,6 +262,12 @@ const currentDeltaTone = getComparisonTone(
   currentComparison?.isBestSegment ?? false,
 );
 
+const totalTimerTone = getComparisonTone(
+  currentComparison?.position ?? null,
+  currentComparison?.trend ?? null,
+  false,
+);
+
   const validRunCount = useMemo(
       () => getValidRunCount(history, sections),
       [history, sections],
@@ -784,12 +790,12 @@ const currentDeltaTone = getComparisonTone(
 
           <div
             className="text-[2.2em] font-semibold tabular-nums leading-none"
-            style={getTimerTextStyle(settingsState, "primary")}
+            style={getTimerTextStyle(settingsState, totalTimerTone)}
           >
             <span>{totalTimeParts.main}</span>
-              <span className="text-[0.5em]">
-                .{totalTimeParts.milliseconds}
-              </span>
+            <span className="text-[0.5em]">
+              .{totalTimeParts.milliseconds}
+            </span>
           </div>
 
           <div className="mt-2 text-xs uppercase tracking-wide text-zinc-500">
