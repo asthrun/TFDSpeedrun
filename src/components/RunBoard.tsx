@@ -823,7 +823,7 @@ const totalTimerTone = getComparisonTone(
                 </div>
               </div>
           </div>
-          <div className="min-w-56 text-right">
+          <div className="min-w-56 pr-2 text-right">
           <div className="text-xs uppercase tracking-wide text-zinc-500">
             Section
           </div>
