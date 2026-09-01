@@ -325,6 +325,10 @@ export type Database = {
 
           chroma_key_enabled: boolean
           chroma_key_color: string
+
+          show_game_profile: boolean
+          show_category: boolean
+          show_compare_to: boolean
         }
         Insert: {          
           font_family?: string
@@ -364,6 +368,10 @@ export type Database = {
 
           chroma_key_enabled?: boolean
           chroma_key_color?: string
+
+          show_game_profile?: boolean
+          show_category?: boolean
+          show_compare_to?: boolean
         }
         Update: {          
           font_family?: string
@@ -403,6 +411,10 @@ export type Database = {
 
           chroma_key_enabled?: boolean
           chroma_key_color?: string
+          show_game_profile?: boolean
+          show_category?: boolean
+          show_compare_to?: boolean
+
         }
         Relationships: []
       }

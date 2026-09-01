@@ -42,6 +42,10 @@ create table public.user_settings (
   best_segment_color text not null default '#facc15',
   paused_color text not null default '#71717a',
 
+  show_game_profile boolean not null default true,
+  show_category boolean not null default true,
+  show_compare_to boolean not null default true,
+
   timer_background_mode text not null default 'transparent',
   timer_background_color text not null default '#000000',
   timer_background_opacity numeric not null default 1,

@@ -16,9 +16,14 @@ const SETTING_FIELDS = [
   "font_family",
   "font_scale",
   "show_compare_delta",
-  "visible_split_count",
   "double_tap_delay_ms",
   "save_incomplete_runs",
+
+  // Timer Layout
+  "show_game_profile",
+  "show_category",
+  "show_compare_to",
+  "visible_split_count",
 
   // Appearance
   "text_shadow",

@@ -179,8 +179,6 @@ export function getTextStyle(
 ): CSSProperties {
   return {
     color: getSemanticColor(appearance, tone),
-    fontFamily: appearance.font_family,
-    fontSize: `${appearance.font_scale}em`,
     textShadow: appearance.text_shadow
       ? "0 1px 2px rgba(0, 0, 0, 0.8)"
       : "none",

@@ -122,6 +122,65 @@ export function SettingsForm({ settings }: { settings: UserSettings }) {
           </p>
 
           <div className="mt-3 grid gap-3">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                defaultChecked={settings.show_game_profile}
+                disabled={pending}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+
+                  startTransition(async () => {
+                    await saveSetting(
+                      { show_game_profile: checked },
+                      "Game Profile visibility saved.",
+                    );
+                  });
+                }}
+              />
+
+              Show Game Profile
+            </label>
+
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                defaultChecked={settings.show_category}
+                disabled={pending}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+
+                  startTransition(async () => {
+                    await saveSetting(
+                      { show_category: checked },
+                      "Category visibility saved.",
+                    );
+                  });
+                }}
+              />
+
+              Show Category
+            </label>
+
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                defaultChecked={settings.show_compare_to}
+                disabled={pending}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+
+                  startTransition(async () => {
+                    await saveSetting(
+                      { show_compare_to: checked },
+                      "Compare To visibility saved.",
+                    );
+                  });
+                }}
+              />
+
+              Show Compare To
+            </label>
             <label className="grid gap-1 text-sm">
               Visible splits
 

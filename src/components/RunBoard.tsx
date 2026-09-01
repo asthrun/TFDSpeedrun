@@ -739,27 +739,33 @@ const totalTimerTone = getComparisonTone(
           <div>
             <div className="mb-4 flex items-start justify-between gap-4">
                 <div className="min-w-0">
+                {settingsState.show_game_profile && (
                   <div
                     className="truncate text-sm"
                     style={getTextStyle(settingsState, "primary")}
                   >
                     {profileName}
                   </div>
+                )}
 
+                {settingsState.show_category && (
                   <div
                     className="truncate text-xl font-semibold"
                     style={getTextStyle(settingsState, "primary")}
                   >
                     {category.name}
                   </div>
+                )}
 
+                {settingsState.show_compare_to && (
                   <div
                     className="mt-1 text-sm"
                     style={getTextStyle(settingsState, "secondary")}
                   >
                     Compare To: {compareModeLabel}
                   </div>
-                </div>
+                )}
+              </div>
 
                 <div className="shrink-0 text-right">
                   <div className="text-xs uppercase tracking-wide text-zinc-500">
