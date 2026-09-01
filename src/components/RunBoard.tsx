@@ -5,7 +5,11 @@ import {
   type RunWithSplits,
 } from "@/lib/analytics";
 import { fontCss } from "@/lib/fonts";
-import { formatSignedDelta, formatTime } from "@/lib/format-time";
+import {
+  formatSignedDelta,
+  formatTime,
+  formatTimeParts,
+} from "@/lib/format-time";
 import {
   clearLiveRun,
   readTimerLiveRun,
@@ -46,6 +50,7 @@ import {
 } from "@/lib/comparison-engine";
 import { getVisibleSplits } from "@/lib/split-window";
 import {
+  getComparisonTone,
   getSemanticColor,
   getSplitBackgroundStyle,
   getTextStyle,
@@ -123,6 +128,8 @@ export function RunBoard({
   const elapsedMs = timer
     ? getElapsedMs(timer, now)
     : 0;
+
+  const totalTimeParts = formatTimeParts(elapsedMs);
 
   const timerSegments = useMemo(
     () => (timer ? getTimerSegments(timer) : []),
@@ -249,28 +256,11 @@ export function RunBoard({
   const currentDeltaMs =
     currentComparison?.deltaMs ?? null;
 
-const currentDeltaTone:
-  | "primary"
-  | "ahead-gaining"
-  | "ahead-losing"
-  | "behind-gaining"
-  | "behind-losing"
-  | "best-segment" =
-  currentComparison?.isBestSegment
-    ? "best-segment"
-    : currentComparison?.position === "ahead" &&
-        currentComparison.trend === "gaining"
-      ? "ahead-gaining"
-      : currentComparison?.position === "ahead" &&
-          currentComparison.trend === "losing"
-        ? "ahead-losing"
-        : currentComparison?.position === "behind" &&
-            currentComparison.trend === "gaining"
-          ? "behind-gaining"
-          : currentComparison?.position === "behind" &&
-              currentComparison.trend === "losing"
-            ? "behind-losing"
-            : "primary";
+const currentDeltaTone = getComparisonTone(
+  currentComparison?.position ?? null,
+  currentComparison?.trend ?? null,
+  currentComparison?.isBestSegment ?? false,
+);
 
   const validRunCount = useMemo(
       () => getValidRunCount(history, sections),
@@ -796,7 +786,10 @@ const currentDeltaTone:
             className="text-[2.2em] font-semibold tabular-nums leading-none"
             style={getTimerTextStyle(settingsState, "primary")}
           >
-            {formatTime(elapsedMs)}
+            <span>{totalTimeParts.main}</span>
+              <span className="text-[0.5em]">
+                .{totalTimeParts.milliseconds}
+              </span>
           </div>
 
           <div className="mt-2 text-xs uppercase tracking-wide text-zinc-500">
@@ -903,38 +896,13 @@ const currentDeltaTone:
                   : isCurrent
                     ? currentSegmentMs
                     : null;
-           
-            let tone:
-                | "primary"
-                | "ahead-gaining"
-                | "ahead-losing"
-                | "behind-gaining"
-                | "behind-losing"
-                | "best-segment" = "primary";
 
-              if (comparison?.isBestSegment) {
-                tone = "best-segment";
-              } else if (
-                comparison?.position === "ahead" &&
-                comparison.trend === "gaining"
-              ) {
-                tone = "ahead-gaining";
-              } else if (
-                comparison?.position === "ahead" &&
-                comparison.trend === "losing"
-              ) {
-                tone = "ahead-losing";
-              } else if (
-                comparison?.position === "behind" &&
-                comparison.trend === "gaining"
-              ) {
-                tone = "behind-gaining";
-              } else if (
-                comparison?.position === "behind" &&
-                comparison.trend === "losing"
-              ) {
-                tone = "behind-losing";
-              }
+            const tone = getComparisonTone(
+              comparison?.position ?? null,
+              comparison?.trend ?? null,
+              comparison?.isBestSegment ?? false,
+            );      
+
 
             const delta = comparison?.deltaMs ?? null;
             

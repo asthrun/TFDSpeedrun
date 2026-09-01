@@ -44,6 +44,34 @@ export type SemanticTone =
   | "best-segment"
   | "paused";
 
+export function getComparisonTone(
+  position: "ahead" | "behind" | "even" | null,
+  trend: "gaining" | "losing" | "even" | null,
+  isBestSegment = false,
+): SemanticTone {
+  if (isBestSegment) {
+    return "best-segment";
+  }
+
+  if (position === "ahead") {
+    if (trend === "gaining") {
+      return "ahead-gaining";
+    }
+
+    return "ahead-losing";
+  }
+
+  if (position === "behind") {
+    if (trend === "losing") {
+      return "behind-losing";
+    }
+
+    return "behind-gaining";
+  }
+
+  return "primary";
+}
+
 export function getSemanticColor(
   appearance: AppearanceSettings,
   tone: SemanticTone,
@@ -166,7 +194,15 @@ export function getTimerTextStyle(
   const color = getSemanticColor(appearance, tone);
 
   return {
-    color,
+    backgroundImage: `linear-gradient(
+      to bottom,
+      color-mix(in srgb, ${color} 135%, white 35%),
+      ${color} 55%,
+      color-mix(in srgb, ${color} 70%, black 30%)
+    )`,
+    WebkitBackgroundClip: "text",
+    backgroundClip: "text",
+    color: "transparent",
     fontFamily: appearance.font_family,
     textShadow: appearance.text_shadow
       ? "0 1px 3px rgba(0, 0, 0, 0.9)"

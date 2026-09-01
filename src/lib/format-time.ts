@@ -22,3 +22,20 @@ export function formatSignedDelta(ms: number): string {
   const sign = ms < 0 ? "−" : "+";
   return `${sign}${formatTime(Math.abs(ms))}`;
 }
+
+export function formatTimeParts(ms: number): {
+  main: string;
+  milliseconds: string;
+} {
+  const safeMs = Math.max(0, Math.floor(ms));
+
+  const totalSeconds = Math.floor(safeMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  const milliseconds = safeMs % 1000;
+
+  return {
+    main: `${minutes}:${seconds.toString().padStart(2, "0")}`,
+    milliseconds: milliseconds.toString().padStart(3, "0"),
+  };
+}
