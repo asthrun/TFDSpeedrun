@@ -6,6 +6,7 @@ import UpdateCategoryForm from "@/components/UpdateCategoryForm";
 import AddSectionForm from "@/components/AddSectionForm";
 import RenameSectionForm from "@/components/RenameSectionForm";
 import DeleteCategoryForm from "@/components/DeleteCategoryForm";
+import CustomTargetForm from "@/components/CustomTargetForm";
 
 export default async function CategorySetupPage({
   params,
@@ -13,9 +14,17 @@ export default async function CategorySetupPage({
   params: Promise<{ categoryId: string }>;
 }) {
   const { categoryId } = await params;
+
   const bundle = await loadCategoryBundle(categoryId);
+
   if (!bundle) notFound();
-  const { category, profile, sections } = bundle;
+
+  const {
+    category,
+    profile,
+    sections,
+    customTargetSplits,
+  } = bundle;
 
   return (
     <main className="mx-auto w-full max-w-3xl p-6">
@@ -52,6 +61,12 @@ export default async function CategorySetupPage({
         ))}
       </ol>
       <AddSectionForm categoryId={categoryId} />
+
+      <CustomTargetForm
+        categoryId={categoryId}
+        sections={sections}
+        currentTargets={customTargetSplits}
+      />
 
       <DeleteCategoryForm
         categoryId={categoryId}

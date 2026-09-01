@@ -289,59 +289,267 @@ export async function updateCategory(
 }
 
 export async function updateCategoryCompareMode(
-      categoryId: string,
-      compareMode: string,
-    ): Promise<ActionState> {
-      const { supabase, user } = await requireUser();
+  categoryId: string,
+  compareMode: string,
+): Promise<ActionState> {
+  const { supabase, user } = await requireUser();
 
-      const validCompareModes = [
-        "personal_best",
-        "custom_target",
-        "latest_run",
-        "worst_run",
-      ] as const;
+  const validCompareModes = [
+    "personal_best",
+    "custom_target",
+    "latest_run",
+    "worst_run",
+  ] as const;
 
-      if (
-        !validCompareModes.includes(
-          compareMode as (typeof validCompareModes)[number]
-        )
-      ) {
-        return {
-          error: "Please select a valid comparison mode.",
-        };
-      }
+  if (
+    !validCompareModes.includes(
+      compareMode as (typeof validCompareModes)[number]
+    )
+  ) {
+    return {
+      error: "Please select a valid comparison mode.",
+    };
+  }
 
-      const { error } = await supabase
-        .from("categories")
-        .update({
-          compare_mode: compareMode as
-            | "personal_best"
-            | "custom_target"
-            | "latest_run"
-            | "worst_run",
-        })
-        .eq("id", categoryId)
-        .eq("user_id", user.id);
+  const { error } = await supabase
+    .from("categories")
+    .update({
+      compare_mode: compareMode as
+        | "personal_best"
+        | "custom_target"
+        | "latest_run"
+        | "worst_run",
+    })
+    .eq("id", categoryId)
+    .eq("user_id", user.id);
 
-      if (error) {
-        console.error(
-          "Failed to update Category comparison mode:",
-          error,
-        );
+  if (error) {
+    console.error(
+      "Failed to update Category comparison mode:",
+      error
+    );
 
-        return {
-          error: "We couldn't change the comparison. Please try again.",
-        };
-      }
+    return {
+      error: "We couldn't change the comparison. Please try again.",
+    };
+  }
 
-      revalidatePath(`/categories/${categoryId}`);
-      revalidatePath(`/categories/${categoryId}/setup`);
-      revalidatePath(`/categories/${categoryId}/overlay`);
+  revalidatePath(`/categories/${categoryId}`);
+  revalidatePath(`/categories/${categoryId}/setup`);
+  revalidatePath(`/categories/${categoryId}/overlay`);
 
+  return {
+    error: null,
+  };
+}
+
+export async function updateCustomTarget(
+  categoryId: string,
+  _previousState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const { supabase, user } = await requireUser();
+
+  /*
+   * Load the Sections from the database instead of trusting
+   * Section IDs sent by the browser.
+   */
+  const { data: sections, error: sectionsError } = await supabase
+    .from("sections")
+    .select("id, sort_order")
+    .eq("category_id", categoryId)
+    .eq("user_id", user.id)
+    .order("sort_order", { ascending: true });
+
+  if (sectionsError) {
+    console.error(
+      "Failed to load Sections for Custom Target:",
+      sectionsError
+    );
+
+    return {
+      error: "We couldn't save your Custom Target. Please try again.",
+    };
+  }
+
+  if (sections.length === 0) {
+    return {
+      error: "Add at least one Section before creating a Custom Target.",
+    };
+  }
+
+  const { parseTimeInput } = await import("@/lib/format-time");
+
+  const parsedTargets: {
+    sectionId: string;
+    timeMs: number | null;
+  }[] = [];
+
+  for (const section of sections) {
+    const raw = String(
+      formData.get(`target_${section.id}`) ?? ""
+    ).trim();
+
+    if (!raw) {
+      parsedTargets.push({
+        sectionId: section.id,
+        timeMs: null,
+      });
+
+      continue;
+    }
+
+    const timeMs = parseTimeInput(raw);
+
+    if (timeMs == null) {
       return {
-        error: null,
+        error: "Please enter Custom Target times as mm:ss.SSS.",
       };
     }
+
+    parsedTargets.push({
+      sectionId: section.id,
+      timeMs,
+    });
+  }
+
+  const filledTargets = parsedTargets.filter(
+    (target) => target.timeMs != null
+  );
+
+  /*
+   * No values means: remove the existing Custom Target.
+   */
+  if (filledTargets.length === 0) {
+    const { error } = await supabase
+      .from("custom_target_splits")
+      .delete()
+      .eq("category_id", categoryId)
+      .eq("user_id", user.id);
+
+    if (error) {
+      console.error(
+        "Failed to remove Custom Target:",
+        error
+      );
+
+      return {
+        error: "We couldn't remove your Custom Target. Please try again.",
+      };
+    }
+
+    revalidatePath(`/categories/${categoryId}`);
+    revalidatePath(`/categories/${categoryId}/setup`);
+    revalidatePath(`/categories/${categoryId}/overlay`);
+
+    return {
+      error: null,
+    };
+  }
+
+  const lastTarget =
+    parsedTargets[parsedTargets.length - 1];
+
+  const hasFinishTime =
+    lastTarget.timeMs != null;
+
+  const hasAllSplits =
+    filledTargets.length === parsedTargets.length;
+
+  const hasFinishTimeOnly =
+    filledTargets.length === 1 &&
+    hasFinishTime;
+
+  /*
+   * The only valid Custom Target structures are:
+   *
+   * 1. Every Section has a cumulative target time.
+   * 2. Only the final Section has a target time.
+   */
+  if (!hasAllSplits && !hasFinishTimeOnly) {
+    return {
+      error:
+        "Enter a time for every Section, or enter only the final target time.",
+    };
+  }
+
+  /*
+   * Full Split targets must be strictly increasing because
+   * the values represent cumulative times.
+   */
+  if (hasAllSplits) {
+    let previousTimeMs = -1;
+
+    for (const target of parsedTargets) {
+      const timeMs = target.timeMs;
+
+      if (timeMs == null) {
+        return {
+          error: "Every Section must have a target time.",
+        };
+      }
+
+      if (timeMs <= previousTimeMs) {
+        return {
+          error:
+            "Custom Target times must increase from one Section to the next.",
+        };
+      }
+
+      previousTimeMs = timeMs;
+    }
+  }
+
+  const rows = filledTargets.map((target) => ({
+    category_id: categoryId,
+    section_id: target.sectionId,
+    user_id: user.id,
+    time_ms: target.timeMs as number,
+  }));
+
+  /*
+   * Replace the previous Custom Target.
+   */
+  const { error: deleteError } = await supabase
+    .from("custom_target_splits")
+    .delete()
+    .eq("category_id", categoryId)
+    .eq("user_id", user.id);
+
+  if (deleteError) {
+    console.error(
+      "Failed to clear previous Custom Target:",
+      deleteError
+    );
+
+    return {
+      error: "We couldn't save your Custom Target. Please try again.",
+    };
+  }
+
+  const { error: insertError } = await supabase
+    .from("custom_target_splits")
+    .insert(rows);
+
+  if (insertError) {
+    console.error(
+      "Failed to save Custom Target:",
+      insertError
+    );
+
+    return {
+      error: "We couldn't save your Custom Target. Please try again.",
+    };
+  }
+
+  revalidatePath(`/categories/${categoryId}`);
+  revalidatePath(`/categories/${categoryId}/setup`);
+  revalidatePath(`/categories/${categoryId}/overlay`);
+
+  return {
+    error: null,
+  };
+}
 
 export async function deleteCategory(
   categoryId: string,
