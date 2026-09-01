@@ -32,6 +32,7 @@ export default async function CategorySetupPage({
             ? ""
             : formatTime(category.target_time_ms)
         }
+        currentCompareMode={category.compare_mode}
       />
 
       <h2 className="mt-8 text-lg font-medium">Sections</h2>

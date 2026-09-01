@@ -139,7 +139,7 @@ export async function createCategory(
 
   const name = String(formData.get("name") ?? "").trim();
   const targetRaw = String(formData.get("target_time") ?? "").trim();
-
+  
   if (!name) {
     return {
       error: "Please enter a name for the Category.",
@@ -158,6 +158,7 @@ export async function createCategory(
     };
   }
 
+  
   let target_time_ms: number | null = null;
 
   if (targetRaw) {
@@ -204,6 +205,9 @@ export async function updateCategory(
 
   const name = String(formData.get("name") ?? "").trim();
   const targetRaw = String(formData.get("target_time") ?? "").trim();
+  const compareMode = String(
+    formData.get("compare_mode") ?? ""
+  ).trim();
 
   if (!name) {
     return {
@@ -220,6 +224,23 @@ export async function updateCategory(
   if (name.length > 50) {
     return {
       error: "The Category name cannot be longer than 50 characters.",
+    };
+  }
+
+  const validCompareModes = [
+    "personal_best",
+    "custom_target",
+    "latest_run",
+    "worst_run",
+  ] as const;
+
+  if (
+    !validCompareModes.includes(
+      compareMode as (typeof validCompareModes)[number]
+    )
+  ) {
+    return {
+      error: "Please select a valid comparison mode.",
     };
   }
 
@@ -242,6 +263,11 @@ export async function updateCategory(
     .update({
       name,
       target_time_ms,
+      compare_mode: compareMode as
+        | "personal_best"
+        | "custom_target"
+        | "latest_run"
+        | "worst_run",
     })
     .eq("id", categoryId)
     .eq("user_id", user.id);
@@ -261,6 +287,61 @@ export async function updateCategory(
     error: null,
   };
 }
+
+export async function updateCategoryCompareMode(
+      categoryId: string,
+      compareMode: string,
+    ): Promise<ActionState> {
+      const { supabase, user } = await requireUser();
+
+      const validCompareModes = [
+        "personal_best",
+        "custom_target",
+        "latest_run",
+        "worst_run",
+      ] as const;
+
+      if (
+        !validCompareModes.includes(
+          compareMode as (typeof validCompareModes)[number]
+        )
+      ) {
+        return {
+          error: "Please select a valid comparison mode.",
+        };
+      }
+
+      const { error } = await supabase
+        .from("categories")
+        .update({
+          compare_mode: compareMode as
+            | "personal_best"
+            | "custom_target"
+            | "latest_run"
+            | "worst_run",
+        })
+        .eq("id", categoryId)
+        .eq("user_id", user.id);
+
+      if (error) {
+        console.error(
+          "Failed to update Category comparison mode:",
+          error,
+        );
+
+        return {
+          error: "We couldn't change the comparison. Please try again.",
+        };
+      }
+
+      revalidatePath(`/categories/${categoryId}`);
+      revalidatePath(`/categories/${categoryId}/setup`);
+      revalidatePath(`/categories/${categoryId}/overlay`);
+
+      return {
+        error: null,
+      };
+    }
 
 export async function deleteCategory(
   categoryId: string,

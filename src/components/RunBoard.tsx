@@ -57,6 +57,7 @@ import {
   getTimerBackgroundStyle,
   getTimerTextStyle,
 } from "@/lib/appearance";
+import { updateCategoryCompareMode } from "@/app/actions/catalog";
 
 type Props = {
   category: Category;
@@ -81,17 +82,23 @@ export function RunBoard({
   overlay = false,
 }: Props) {
     const [live, setLive] = useState<TimerLiveRunState | null>(null);
-  const [now, setNow] = useState(() => Date.now());
-  const [settingsState, setSettingsState] = useState(settings);
-  const [saveStatus, setSaveStatus] = useState<
-    "idle" | "saving" | "saved" | "error"
-  >("idle");
+    const [now, setNow] = useState(() => Date.now());
+    const [settingsState, setSettingsState] = useState(settings);
+
+    const [compareMode, setCompareMode] = useState(
+      category.compare_mode
+    );
+
+    const [saveStatus, setSaveStatus] = useState<
+      "idle" | "saving" | "saved" | "error"
+    >("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const finalizingStartedAt = useRef<number | null>(null);
   const lastKeyboardActionAt = useRef<
     Record<string, number>
   >({});
+  
 
   useEffect(() => {
     setLive(readTimerLiveRun(category.id));
@@ -206,7 +213,7 @@ export function RunBoard({
   );
 
   const activeComparisonSource = useMemo<ComparisonSource>(() => {
-    switch (category.compare_mode) {
+    switch (compareMode) {
       case "custom_target":
         return customTargetSource;
 
@@ -221,7 +228,7 @@ export function RunBoard({
         return personalBestSource;
     }
   }, [
-    category.compare_mode,
+    compareMode,
     customTargetSource,
     latestRunSource,
     worstRunSource,
@@ -281,7 +288,7 @@ const totalTimerTone = getComparisonTone(
   );
 
   const compareModeLabel = useMemo(() => {
-      switch (category.compare_mode) {
+      switch (compareMode) {
         case "custom_target":
           return "Custom Target";
 
@@ -295,7 +302,7 @@ const totalTimerTone = getComparisonTone(
         default:
           return "Personal Best";
       }
-    }, [category.compare_mode]);
+    }, [compareMode]);
 
   const start = useCallback(() => {
     if (sections.length === 0) return;
@@ -684,6 +691,42 @@ const totalTimerTone = getComparisonTone(
     undo,
   ]);
 
+      function changeCompareMode(value: string) {
+        const previous = compareMode;
+
+        setCompareMode(value);
+
+        void (async () => {
+          try {
+            const result = await updateCategoryCompareMode(
+              category.id,
+              value,
+            );
+
+            if (result.error) {
+              setCompareMode(previous);
+              setSaveStatus("error");
+              setSaveError(result.error);
+              return;
+            }
+
+            setSaveStatus("saved");
+            setSaveError(null);
+          } catch (error) {
+            console.error(
+              "Unexpected error while changing comparison mode:",
+              error,
+            );
+
+            setCompareMode(previous);
+            setSaveStatus("error");
+            setSaveError(
+              "We couldn't change the comparison. Please try again.",
+            );
+          }
+        })();
+      }
+
       function toggleSetting(
       key: "show_compare_delta",
       value: boolean,
@@ -1040,16 +1083,48 @@ const totalTimerTone = getComparisonTone(
               </TimerButton>
             </div>
 
-            <div className="mt-4 grid gap-2 text-sm text-zinc-300 sm:grid-cols-2">
-                <label className="flex items-center gap-2">
+            <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-zinc-300">
+              <label className="flex items-center gap-2">
+                <span>Compare to:</span>
+
+                <select
+                  value={compareMode}
+                  onChange={(e) => changeCompareMode(e.target.value)}
+                  className="rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1 text-zinc-100"
+                >
+                  <option value="personal_best">
+                    Personal Best
+                  </option>
+
+                  <option value="latest_run">
+                    Latest Run
+                  </option>
+
+                  <option value="worst_run">
+                    Worst Run
+                  </option>
+
+                  <option value="custom_target">
+                    Custom Target
+                  </option>
+                </select>
+              </label>
+
+              <label className="flex items-center gap-2">
                 <input
                   type="checkbox"
                   checked={settingsState.show_compare_delta}
-                  onChange={(e) => toggleSetting("show_compare_delta", e.target.checked)}
+                  onChange={(e) =>
+                    toggleSetting(
+                      "show_compare_delta",
+                      e.target.checked,
+                    )
+                  }
                 />
-                Delta vs compare
+
+                Delta
               </label>
-              </div>
+            </div>
           </>
         )}
       </div>
