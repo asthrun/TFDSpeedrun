@@ -46,6 +46,7 @@ import {
 } from "@/lib/comparison-engine";
 import { getVisibleSplits } from "@/lib/split-window";
 import {
+  getSplitBackgroundStyle,
   getTextStyle,
   getTimerBackgroundStyle,
   getTimerTextStyle,
@@ -911,11 +912,17 @@ export function RunBoard({
             
             return (
               <li
-                  key={section.id}
-                  className={`grid grid-cols-[1fr_auto_auto] items-center gap-4 rounded px-2 py-1 ${
-                    isCurrent ? "bg-white/10" : ""
-                  }`}
-                >
+                key={section.id}
+                className={`grid grid-cols-[1fr_auto_auto] items-center gap-4 rounded px-2 py-1 ${
+                  isCurrent
+                    ? "ring-1 ring-inset ring-white/30"
+                    : ""
+                }`}
+                style={getSplitBackgroundStyle(
+                  settingsState,
+                  index,
+                )}
+              >
                   <span className="min-w-0 truncate">
                     {index + 1}. {section.name}
                   </span>

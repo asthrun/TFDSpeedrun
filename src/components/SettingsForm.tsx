@@ -29,6 +29,22 @@ export function SettingsForm({ settings }: { settings: UserSettings }) {
 
   const [pending, startTransition] = useTransition();
 
+  const [splitsBackgroundMode, setSplitsBackgroundMode] = useState(
+  settings.splits_background_mode
+    );
+
+    const [splitsBackgroundColor1, setSplitsBackgroundColor1] = useState(
+      settings.splits_background_color_1
+    );
+
+    const [splitsBackgroundColor2, setSplitsBackgroundColor2] = useState(
+      settings.splits_background_color_2
+    );
+
+    const [splitsBackgroundOpacity, setSplitsBackgroundOpacity] = useState(
+      Number(settings.splits_background_opacity)
+    );
+
   async function saveSetting(
     patch: Partial<UserSettings>,
     successMessage: string
@@ -154,6 +170,8 @@ export function SettingsForm({ settings }: { settings: UserSettings }) {
                     "Timer background saved."
                   );
                 });
+
+                
               }}
               className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"
             >
@@ -248,6 +266,158 @@ export function SettingsForm({ settings }: { settings: UserSettings }) {
 
             Text shadow
           </label>
+        </div>
+
+        <div className="mt-6 grid gap-4">
+          <h3 className="text-lg font-semibold">
+            Split Background
+          </h3>
+
+          <label className="grid gap-1 text-sm">
+            Background mode
+
+            <select
+              value={splitsBackgroundMode}
+              disabled={pending}
+              onChange={(e) => {
+                const value = e.target.value;
+
+                if (
+                  value !== "transparent" &&
+                  value !== "solid" &&
+                  value !== "alternating"
+                ) {
+                  return;
+                }
+
+                setSplitsBackgroundMode(value);
+
+                startTransition(async () => {
+                  await saveSetting(
+                    { splits_background_mode: value },
+                    "Split background saved."
+                  );
+                });
+              }}
+              className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"
+            >
+              <option value="transparent">
+                Transparent
+              </option>
+
+              <option value="solid">
+                Solid color
+              </option>
+
+              <option value="alternating">
+                Alternating colors
+              </option>
+            </select>
+          </label>
+
+          {splitsBackgroundMode !== "transparent" && (
+            <>
+              <label className="grid gap-1 text-sm">
+                Background color
+
+                <input
+                  type="color"
+                  value={splitsBackgroundColor1}
+                  disabled={pending}
+                  onChange={(e) =>
+                    setSplitsBackgroundColor1(e.target.value)
+                  }
+                />
+              </label>
+
+              <button
+                type="button"
+                disabled={pending}
+                className="w-fit rounded-lg bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-950 disabled:opacity-50"
+                onClick={() =>
+                  startTransition(async () => {
+                    await saveSetting(
+                      {
+                        splits_background_color_1:
+                          splitsBackgroundColor1,
+                      },
+                      "Split background color saved."
+                    );
+                  })
+                }
+              >
+                Save color
+              </button>
+            </>
+          )}
+
+          {splitsBackgroundMode === "alternating" && (
+            <>
+              <label className="grid gap-1 text-sm">
+                Alternating color
+
+                <input
+                  type="color"
+                  value={splitsBackgroundColor2}
+                  disabled={pending}
+                  onChange={(e) =>
+                    setSplitsBackgroundColor2(e.target.value)
+                  }
+                />
+              </label>
+
+              <button
+                type="button"
+                disabled={pending}
+                className="w-fit rounded-lg bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-950 disabled:opacity-50"
+                onClick={() =>
+                  startTransition(async () => {
+                    await saveSetting(
+                      {
+                        splits_background_color_2:
+                          splitsBackgroundColor2,
+                      },
+                      "Alternating split color saved."
+                    );
+                  })
+                }
+              >
+                Save alternating color
+              </button>
+            </>
+          )}
+
+          {splitsBackgroundMode !== "transparent" && (
+            <label className="grid gap-1 text-sm">
+              Opacity:{" "}
+              {Math.round(splitsBackgroundOpacity * 100)}%
+
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={splitsBackgroundOpacity}
+                disabled={pending}
+                onChange={(e) =>
+                  setSplitsBackgroundOpacity(
+                    Number(e.target.value)
+                  )
+                }
+                onMouseUp={() =>
+                  startTransition(async () => {
+                    await saveSetting(
+                      {
+                        splits_background_opacity:
+                          splitsBackgroundOpacity,
+                      },
+                      "Split background opacity saved."
+                    );
+                  })
+                }
+              />
+            </label>
+          )}
         </div>
 
         <div className="mt-3 grid gap-3">       
