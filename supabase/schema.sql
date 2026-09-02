@@ -116,10 +116,7 @@ create trigger on_auth_user_created
   for each row
   execute procedure public.handle_new_user();
 
-create table public.game_profiles (
-  ...
-);
-  
+ 
 
 create table public.game_profiles (
   id uuid primary key default gen_random_uuid(),
