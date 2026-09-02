@@ -8,12 +8,11 @@ use tauri::{
     tray::TrayIconBuilder,
 };
 
-use tauri_plugin_global_shortcut::{
-    Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState,
-};
+use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 use tauri_plugin_opener::OpenerExt;
 
 use futures_util::{SinkExt, StreamExt};
+use rand::RngCore;
 use tokio::net::TcpListener;
 use tokio_tungstenite::{
     accept_hdr_async,
@@ -22,9 +21,6 @@ use tokio_tungstenite::{
         http::StatusCode,
     },
 };
-use rand::RngCore;
-
-
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -56,62 +52,63 @@ impl InputIntent {
 fn shortcuts() -> [(Shortcut, InputIntent); 5] {
     [
         (
-            Shortcut::new(
-                Some(Modifiers::CONTROL | Modifiers::SHIFT),
-                Code::F1,
-            ),
+            Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::F1),
             InputIntent::StartSplitFinish,
         ),
         (
-            Shortcut::new(
-                Some(Modifiers::CONTROL | Modifiers::SHIFT),
-                Code::F2,
-            ),
+            Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::F2),
             InputIntent::PauseResume,
         ),
         (
-            Shortcut::new(
-                Some(Modifiers::CONTROL | Modifiers::SHIFT),
-                Code::F3,
-            ),
+            Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::F3),
             InputIntent::UndoSplit,
         ),
         (
-            Shortcut::new(
-                Some(Modifiers::CONTROL | Modifiers::SHIFT),
-                Code::F4,
-            ),
+            Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::F4),
             InputIntent::SkipSplit,
         ),
         (
-            Shortcut::new(
-                Some(Modifiers::CONTROL | Modifiers::SHIFT),
-                Code::F5,
-            ),
+            Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::F5),
             InputIntent::Reset,
         ),
     ]
 }
 
-const ALLOWED_ORIGINS: &[&str] = &[
-    "https://tfdspeedrun.vercel.app",
-];
+fn disable_hotkeys(app: &tauri::AppHandle, hotkeys_enabled: &Arc<AtomicBool>) {
+    if !hotkeys_enabled.load(Ordering::SeqCst) {
+        return;
+    }
+
+    for (shortcut, _) in shortcuts() {
+        if let Err(error) = app.global_shortcut().unregister(shortcut) {
+            eprintln!("Failed to unregister hotkey during disconnect: {error}");
+        }
+    }
+
+    hotkeys_enabled.store(false, Ordering::SeqCst);
+
+    println!("Hotkeys automatically disabled");
+}
+
+const ALLOWED_ORIGINS: &[&str] = &["https://tfdspeedrun.vercel.app"];
 
 fn is_allowed_origin(origin: &str) -> bool {
     ALLOWED_ORIGINS.contains(&origin)
 }
 
 async fn run_local_bridge(
+    app: tauri::AppHandle,
     pairing_code: Arc<Mutex<Option<String>>>,
+    connected: Arc<AtomicBool>,
+    hotkeys_enabled: Arc<AtomicBool>,
+    hotkeys_item: MenuItem<tauri::Wry>,
 ) {
     const BRIDGE_ADDRESS: &str = "127.0.0.1:38471";
 
     let listener = match TcpListener::bind(BRIDGE_ADDRESS).await {
         Ok(listener) => listener,
         Err(error) => {
-            eprintln!(
-                "Failed to start local bridge on {BRIDGE_ADDRESS}: {error}"
-            );
+            eprintln!("Failed to start local bridge on {BRIDGE_ADDRESS}: {error}");
             return;
         }
     };
@@ -127,137 +124,123 @@ async fn run_local_bridge(
             }
         };
         let pairing_code_for_connection = Arc::clone(&pairing_code);
+        let connected_for_connection = Arc::clone(&connected);
+        let app_for_connection = app.clone();
+
+        let hotkeys_enabled_for_connection = Arc::clone(&hotkeys_enabled);
+
+        let hotkeys_item_for_connection = hotkeys_item.clone();
+
         tauri::async_runtime::spawn(async move {
             let callback = |request: &Request, response: Response| {
-            let origin = request
-                .headers()
-                .get("origin")
-                .and_then(|value| value.to_str().ok());
+                let origin = request
+                    .headers()
+                    .get("origin")
+                    .and_then(|value| value.to_str().ok());
 
-            match origin {
-                Some(origin) if is_allowed_origin(origin) => {
-                    println!("WebSocket origin accepted: {origin}");
-                    Ok(response)
+                match origin {
+                    Some(origin) if is_allowed_origin(origin) => {
+                        println!("WebSocket origin accepted: {origin}");
+                        Ok(response)
+                    }
+
+                    Some(origin) => {
+                        eprintln!("WebSocket origin rejected: {origin}");
+
+                        let mut error_response =
+                            ErrorResponse::new(Some("Origin not allowed".to_string()));
+
+                        *error_response.status_mut() = StatusCode::FORBIDDEN;
+
+                        Err(error_response)
+                    }
+
+                    None => {
+                        eprintln!("WebSocket connection rejected: missing Origin header");
+
+                        let mut error_response =
+                            ErrorResponse::new(Some("Missing Origin header".to_string()));
+
+                        *error_response.status_mut() = StatusCode::FORBIDDEN;
+
+                        Err(error_response)
+                    }
                 }
+            };
 
-                Some(origin) => {
-                    eprintln!("WebSocket origin rejected: {origin}");
-
-                    let mut error_response = ErrorResponse::new(
-                        Some("Origin not allowed".to_string()),
-                    );
-
-                    *error_response.status_mut() = StatusCode::FORBIDDEN;
-
-                    Err(error_response)
-                }
-
-                None => {
-                    eprintln!(
-                        "WebSocket connection rejected: missing Origin header"
-                    );
-
-                    let mut error_response = ErrorResponse::new(
-                        Some("Missing Origin header".to_string()),
-                    );
-
-                    *error_response.status_mut() = StatusCode::FORBIDDEN;
-
-                    Err(error_response)
-                }
-            }
-        };
-
-        let mut websocket =
-            match accept_hdr_async(stream, callback).await {
+            let mut websocket = match accept_hdr_async(stream, callback).await {
                 Ok(websocket) => websocket,
 
                 Err(error) => {
-                    eprintln!(
-                        "WebSocket handshake failed for {address}: {error}"
-                    );
+                    eprintln!("WebSocket handshake failed for {address}: {error}");
                     return;
                 }
             };
 
             println!("Browser connected, awaiting pairing: {address}");
 
-                let pairing_message = websocket.next().await;
+            let pairing_message = websocket.next().await;
 
-                let supplied_pairing_code = match pairing_message {
-                    Some(Ok(message)) if message.is_text() => {
-                        match message.to_text() {
-                            Ok(text) => text.to_string(),
+            let supplied_pairing_code = match pairing_message {
+                Some(Ok(message)) if message.is_text() => match message.to_text() {
+                    Ok(text) => text.to_string(),
 
-                            Err(error) => {
-                                eprintln!(
-                                    "Invalid pairing message from {address}: {error}"
-                                );
-
-                                let _ = websocket.close(None).await;
-                                return;
-                            }
-                        }
-                    }
-
-                    Some(Ok(_)) => {
-                        eprintln!(
-                            "Pairing rejected for {address}: expected text message"
-                        );
+                    Err(error) => {
+                        eprintln!("Invalid pairing message from {address}: {error}");
 
                         let _ = websocket.close(None).await;
                         return;
                     }
+                },
 
-                    Some(Err(error)) => {
-                        eprintln!(
-                            "WebSocket error during pairing for {address}: {error}"
-                        );
-                        return;
-                    }
+                Some(Ok(_)) => {
+                    eprintln!("Pairing rejected for {address}: expected text message");
 
-                    None => {
-                        println!(
-                            "Browser disconnected before pairing: {address}"
-                        );
-                        return;
-                    }
-                };
+                    let _ = websocket.close(None).await;
+                    return;
+                }
 
-                let pairing_accepted = {
-                    match pairing_code_for_connection.lock() {
-                        Ok(mut pairing_code) => {
-                            match pairing_code.as_ref() {
-                                Some(expected_code)
-                                    if supplied_pairing_code == expected_code.as_str() =>
-                                {
-                                    // Consume the pairing code immediately.
-                                    *pairing_code = None;
-                                    true
-                                }
+                Some(Err(error)) => {
+                    eprintln!("WebSocket error during pairing for {address}: {error}");
+                    return;
+                }
 
-                                _ => false,
+                None => {
+                    println!("Browser disconnected before pairing: {address}");
+                    return;
+                }
+            };
+
+            let pairing_accepted = {
+                match pairing_code_for_connection.lock() {
+                    Ok(mut pairing_code) => {
+                        match pairing_code.as_ref() {
+                            Some(expected_code)
+                                if supplied_pairing_code == expected_code.as_str() =>
+                            {
+                                // Consume the pairing code immediately.
+                                *pairing_code = None;
+                                true
                             }
-                        }
 
-                        Err(error) => {
-                            eprintln!(
-                                "Failed to access pairing state for {address}: {error}"
-                            );
-                            false
+                            _ => false,
                         }
                     }
-                };
+
+                    Err(error) => {
+                        eprintln!("Failed to access pairing state for {address}: {error}");
+                        false
+                    }
+                }
+            };
 
             if !pairing_accepted {
                 eprintln!("Pairing rejected for {address}");
 
                 let _ = websocket
-                    .send(
-                        tokio_tungstenite::tungstenite::Message::Text(
-                            "pairing_rejected".into(),
-                        ),
-                    )
+                    .send(tokio_tungstenite::tungstenite::Message::Text(
+                        "pairing_rejected".into(),
+                    ))
                     .await;
 
                 let _ = websocket.close(None).await;
@@ -265,44 +248,52 @@ async fn run_local_bridge(
             }
 
             println!("Pairing accepted: {address}");
+            connected_for_connection.store(true, Ordering::SeqCst);
+            println!("Companion state: CONNECTED");
 
-                if let Err(error) = websocket
-                    .send(
-                        tokio_tungstenite::tungstenite::Message::Text(
-                            "pairing_ok".into(),
-                        ),
-                    )
-                    .await
-                {
-                    eprintln!(
-                        "Failed to confirm pairing for {address}: {error}"
-                    );
-                    return;
-                }
+            if let Err(error) = websocket
+                .send(tokio_tungstenite::tungstenite::Message::Text(
+                    "pairing_ok".into(),
+                ))
+                .await
+            {
+                eprintln!("Failed to confirm pairing for {address}: {error}");
 
-                // Pairing succeeded.
-                // Timer intents are intentionally not transmitted yet.
-                while let Some(message) = websocket.next().await {
-                    match message {
-                        Ok(message) if message.is_close() => {
-                            break;
-                        }
+                connected_for_connection.store(false, Ordering::SeqCst);
 
-                        Ok(_) => {
-                            // Authenticated connection exists,
-                            // but incoming messages have no authority yet.
-                        }
+                println!("Companion state: DISCONNECTED");
 
-                        Err(error) => {
-                            eprintln!(
-                                "WebSocket error for {address}: {error}"
-                            );
-                            break;
-                        }
+                return;
+            }
+
+            // Pairing succeeded.
+            // Timer intents are intentionally not transmitted yet.
+            while let Some(message) = websocket.next().await {
+                match message {
+                    Ok(message) if message.is_close() => {
+                        break;
+                    }
+
+                    Ok(_) => {
+                        // Authenticated connection exists,
+                        // but incoming messages have no authority yet.
+                    }
+
+                    Err(error) => {
+                        eprintln!("WebSocket error for {address}: {error}");
+                        break;
                     }
                 }
+            }
 
-                println!("Paired browser disconnected: {address}");
+            connected_for_connection.store(false, Ordering::SeqCst);
+
+            disable_hotkeys(&app_for_connection, &hotkeys_enabled_for_connection);
+
+            let _ = hotkeys_item_for_connection.set_text("Hotkeys: Disabled");
+
+            println!("Companion state: DISCONNECTED");
+            println!("Paired browser disconnected: {address}");
         });
     }
 }
@@ -311,17 +302,15 @@ fn generate_pairing_code() -> String {
     let mut bytes = [0u8; 32];
     rand::rng().fill_bytes(&mut bytes);
 
-    bytes
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect()
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let hotkeys_enabled = Arc::new(AtomicBool::new(false));
-    let pairing_code =
-        Arc::new(Mutex::new(Some(generate_pairing_code())));
+    let connected = Arc::new(AtomicBool::new(false));
+
+    let pairing_code = Arc::new(Mutex::new(Some(generate_pairing_code())));
 
     tauri::Builder::default()
         // Single-instance must remain the first registered plugin.
@@ -347,20 +336,57 @@ pub fn run() {
         )
         .plugin(tauri_plugin_opener::init())
         .setup(move |app| {
-            let pairing_code_for_bridge = Arc::clone(&pairing_code);
-
-            tauri::async_runtime::spawn(
-                run_local_bridge(pairing_code_for_bridge)
-            );
-
             let open_item =
-                MenuItem::with_id(app, "open", "Open TFDSpeedrun", true, None::<&str>)?;
+                MenuItem::with_id(
+                    app,
+                    "open",
+                    "Open TFDSpeedrun",
+                    true,
+                    None::<&str>,
+                )?;
 
             let hotkeys_item =
-                MenuItem::with_id(app, "hotkeys", "Hotkeys: Disabled", true, None::<&str>)?;
+                MenuItem::with_id(
+                    app,
+                    "hotkeys",
+                    "Hotkeys: Disabled",
+                    true,
+                    None::<&str>,
+                )?;
 
             let close_item =
-                MenuItem::with_id(app, "close", "Close Companion", true, None::<&str>)?;
+                MenuItem::with_id(
+                    app,
+                    "close",
+                    "Close Companion",
+                    true,
+                    None::<&str>,
+                )?;
+
+                let pairing_code_for_bridge =
+                    Arc::clone(&pairing_code);
+
+                let connected_for_bridge =
+                    Arc::clone(&connected);
+
+                let hotkeys_enabled_for_bridge =
+                    Arc::clone(&hotkeys_enabled);
+
+                let hotkeys_item_for_bridge =
+                    hotkeys_item.clone();
+
+                let app_for_bridge =
+                    app.handle().clone();
+
+                tauri::async_runtime::spawn(
+                    run_local_bridge(
+                        app_for_bridge,
+                        pairing_code_for_bridge,
+                        connected_for_bridge,
+                        hotkeys_enabled_for_bridge,
+                        hotkeys_item_for_bridge,
+                    )
+                );
 
             let menu =
                 Menu::with_items(app, &[&open_item, &hotkeys_item, &close_item])?;
@@ -368,6 +394,7 @@ pub fn run() {
             let hotkeys_enabled_for_menu = Arc::clone(&hotkeys_enabled);
             let hotkeys_item_for_menu = hotkeys_item.clone();
             let pairing_code_for_menu = Arc::clone(&pairing_code);
+            let connected_for_menu = Arc::clone(&connected);
 
             TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
@@ -406,6 +433,16 @@ pub fn run() {
                         "hotkeys" => {
                             let currently_enabled =
                                 hotkeys_enabled_for_menu.load(Ordering::SeqCst);
+
+                            let is_connected =
+                                connected_for_menu.load(Ordering::SeqCst);
+
+                            if !currently_enabled && !is_connected {
+                                println!(
+                                    "Hotkeys cannot be enabled: Companion is DISCONNECTED"
+                                );
+                                return;
+                            }
 
                             if currently_enabled {
                                 // Disable all configured hotkeys.
