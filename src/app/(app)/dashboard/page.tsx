@@ -1,6 +1,8 @@
 import Link from "next/link";
 import CreateGameProfileForm from "@/components/CreateGameProfileForm";
+import CompanionPairingClient from "@/components/CompanionPairingClient";
 import { requireUser } from "@/lib/auth";
+
 
 export default async function DashboardPage() {
   const { supabase, user } = await requireUser();
@@ -33,6 +35,8 @@ export default async function DashboardPage() {
 
   return (
     <main className="mx-auto w-full max-w-3xl p-6">
+      <CompanionPairingClient />
+
       <h1 className="text-2xl font-semibold">Game profiles</h1>
       <p className="mt-1 text-sm text-zinc-400">
         Each profile is a game or mode. Categories live inside a profile.
