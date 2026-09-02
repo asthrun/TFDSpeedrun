@@ -2,6 +2,7 @@ import { getSettings, requireUser } from "@/lib/auth";
 import { ChangeUsernameForm } from "./ChangeUsernameForm";
 import { ChangeEmailForm } from "./ChangeEmailForm";
 import { ChangePasswordForm } from "./ChangePasswordForm";
+import { AccountDataExport } from "./AccountDataExport";
 
 function maskEmail(email: string) {
   const [localPart, domain] = email.split("@");
@@ -97,13 +98,8 @@ export default async function AccountPage() {
           Permanently delete your account and its associated data.
         </p>
 
-        <button
-          type="button"
-          disabled
-          className="mt-4 rounded-md border border-red-900 px-3 py-2 text-sm text-red-500 opacity-60"
-        >
+        <AccountDataExport />
           Delete Account
-        </button>
       </section>
     </main>
   );
