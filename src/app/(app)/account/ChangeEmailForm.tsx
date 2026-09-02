@@ -35,6 +35,7 @@ export function ChangeEmailForm({
           name="email"
           type="email"
           defaultValue={currentEmail}
+          placeholder="example@email.com"
           required
           disabled={pending}
           className="mt-1 w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500 disabled:opacity-60"

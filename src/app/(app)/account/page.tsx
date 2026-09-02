@@ -69,7 +69,13 @@ export default async function AccountPage() {
           <p className="mt-1">{displayedEmail}</p>
         </div>
 
-        <ChangeEmailForm currentEmail={email} />
+        <ChangeEmailForm
+          currentEmail={
+            settings.privacy_mode
+              ? ""
+              : email
+          }
+        />
       </section>
 
       <section className="rounded-lg border border-zinc-800 p-5">
