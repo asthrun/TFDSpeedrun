@@ -43,7 +43,23 @@ export default function CompanionPairingClient() {
       if (event.data === "pairing_rejected") {
         console.error("TFDSpeedrun Companion pairing rejected.");
         websocket.close();
+        return;
       }
+
+      const companionIntents = new Set([
+        "start_split_finish",
+        "pause_resume",
+        "undo_split",
+        "skip_split",
+        "reset",
+      ]);
+
+      if (typeof event.data === "string" && companionIntents.has(event.data)) {
+        console.log(`Companion intent received: ${event.data}`);
+        return;
+      }
+
+      console.warn("Unknown Companion message ignored.");
     };
 
     websocket.onerror = () => {
