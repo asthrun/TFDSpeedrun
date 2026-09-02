@@ -15,7 +15,13 @@ use tauri_plugin_opener::OpenerExt;
 
 use futures_util::StreamExt;
 use tokio::net::TcpListener;
-use tokio_tungstenite::accept_async;
+use tokio_tungstenite::{
+    accept_hdr_async,
+    tungstenite::{
+        handshake::server::{ErrorResponse, Request, Response},
+        http::StatusCode,
+    },
+};
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -84,6 +90,14 @@ fn shortcuts() -> [(Shortcut, InputIntent); 5] {
     ]
 }
 
+const ALLOWED_ORIGINS: &[&str] = &[
+    "https://tfdspeedrun.vercel.app",
+];
+
+fn is_allowed_origin(origin: &str) -> bool {
+    ALLOWED_ORIGINS.contains(&origin)
+}
+
 async fn run_local_bridge() {
     const BRIDGE_ADDRESS: &str = "127.0.0.1:38471";
 
@@ -109,8 +123,50 @@ async fn run_local_bridge() {
         };
 
         tauri::async_runtime::spawn(async move {
-            let mut websocket = match accept_async(stream).await {
+            let callback = |request: &Request, response: Response| {
+            let origin = request
+                .headers()
+                .get("origin")
+                .and_then(|value| value.to_str().ok());
+
+            match origin {
+                Some(origin) if is_allowed_origin(origin) => {
+                    println!("WebSocket origin accepted: {origin}");
+                    Ok(response)
+                }
+
+                Some(origin) => {
+                    eprintln!("WebSocket origin rejected: {origin}");
+
+                    let mut error_response = ErrorResponse::new(
+                        Some("Origin not allowed".to_string()),
+                    );
+
+                    *error_response.status_mut() = StatusCode::FORBIDDEN;
+
+                    Err(error_response)
+                }
+
+                None => {
+                    eprintln!(
+                        "WebSocket connection rejected: missing Origin header"
+                    );
+
+                    let mut error_response = ErrorResponse::new(
+                        Some("Missing Origin header".to_string()),
+                    );
+
+                    *error_response.status_mut() = StatusCode::FORBIDDEN;
+
+                    Err(error_response)
+                }
+            }
+        };
+
+        let mut websocket =
+            match accept_hdr_async(stream, callback).await {
                 Ok(websocket) => websocket,
+
                 Err(error) => {
                     eprintln!(
                         "WebSocket handshake failed for {address}: {error}"
