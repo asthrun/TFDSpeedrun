@@ -553,7 +553,7 @@ const totalTimerTone = getComparisonTone(
         );
       }
     })();
-  }, [
+    }, [
     category.id,
     live,
     saveLiveState,
@@ -561,6 +561,64 @@ const totalTimerTone = getComparisonTone(
     timer,
   ]);
 
+  // NIEUW: Companion intents
+  useEffect(() => {
+    const onCompanionIntent = (event: Event) => {
+      const companionEvent =
+        event as CustomEvent<string>;
+
+      switch (companionEvent.detail) {
+        case "start_split_finish":
+          if (timer?.status === "running") {
+            split();
+          } else {
+            start();
+          }
+          break;
+
+        case "pause_resume":
+          pauseResume();
+          break;
+
+        case "undo_split":
+          undo();
+          break;
+
+        case "skip_split":
+          skip();
+          break;
+
+        case "reset":
+          reset();
+          break;
+
+        default:
+          return;
+      }
+    };
+
+    window.addEventListener(
+      "tfdspeedrun:companion-intent",
+      onCompanionIntent
+    );
+
+    return () => {
+      window.removeEventListener(
+        "tfdspeedrun:companion-intent",
+        onCompanionIntent
+      );
+    };
+  }, [
+    pauseResume,
+    reset,
+    skip,
+    split,
+    start,
+    timer?.status,
+    undo,
+  ]);
+
+  // BESTAAND: normale browser keyboard shortcuts
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const target =

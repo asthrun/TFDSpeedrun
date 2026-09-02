@@ -102,6 +102,9 @@ async fn run_local_bridge(
     connected: Arc<AtomicBool>,
     hotkeys_enabled: Arc<AtomicBool>,
     hotkeys_item: MenuItem<tauri::Wry>,
+    active_intent_sender: Arc<
+        Mutex<Option<tokio::sync::mpsc::UnboundedSender<InputIntent>>>,
+    >,
 ) {
     const BRIDGE_ADDRESS: &str = "127.0.0.1:38471";
 
@@ -127,9 +130,14 @@ async fn run_local_bridge(
         let connected_for_connection = Arc::clone(&connected);
         let app_for_connection = app.clone();
 
-        let hotkeys_enabled_for_connection = Arc::clone(&hotkeys_enabled);
+        let hotkeys_enabled_for_connection =
+            Arc::clone(&hotkeys_enabled);
 
-        let hotkeys_item_for_connection = hotkeys_item.clone();
+        let hotkeys_item_for_connection =
+            hotkeys_item.clone();
+
+        let active_intent_sender_for_connection =
+            Arc::clone(&active_intent_sender);
 
         tauri::async_runtime::spawn(async move {
             let callback = |request: &Request, response: Response| {
@@ -267,30 +275,116 @@ async fn run_local_bridge(
             }
 
             // Pairing succeeded.
-            // Timer intents are intentionally not transmitted yet.
-            while let Some(message) = websocket.next().await {
-                match message {
-                    Ok(message) if message.is_close() => {
-                        break;
-                    }
+            //
+            // Create a private intent channel for this authenticated
+            // browser connection. The global shortcut handler gets
+            // the sender; this WebSocket task owns the receiver.
+            let (intent_sender, mut intent_receiver) =
+                tokio::sync::mpsc::unbounded_channel::<InputIntent>();
 
-                    Ok(_) => {
-                        // Authenticated connection exists,
-                        // but incoming messages have no authority yet.
+            let intent_channel_activated = {
+                match active_intent_sender_for_connection.lock() {
+                    Ok(mut active_sender) => {
+                        *active_sender = Some(intent_sender);
+                        true
                     }
 
                     Err(error) => {
-                        eprintln!("WebSocket error for {address}: {error}");
-                        break;
+                        eprintln!(
+                            "Failed to activate Companion input channel for {address}: {error}"
+                        );
+                        false
                     }
+                }
+            };
+
+            if !intent_channel_activated {
+                connected_for_connection.store(false, Ordering::SeqCst);
+
+                let _ = websocket.close(None).await;
+
+                return;
+            }
+
+            println!("Authenticated input channel active: {address}");
+
+            loop {
+                tokio::select! {
+                    websocket_message = websocket.next() => {
+                        match websocket_message {
+                            Some(Ok(message)) if message.is_close() => {
+                                break;
+                            }
+
+                            Some(Ok(_)) => {
+                                // Incoming browser messages have no authority
+                                // after the pairing handshake.
+                            }
+
+                            Some(Err(error)) => {
+                                eprintln!(
+                                    "WebSocket error for {address}: {error}"
+                                );
+                                break;
+                            }
+
+                            None => {
+                                break;
+                            }
+                        }
+                    }
+
+                    intent = intent_receiver.recv() => {
+                        let Some(intent) = intent else {
+                            break;
+                        };
+
+                        let intent_text = intent.as_str();
+
+                        if let Err(error) = websocket
+                            .send(
+                                tokio_tungstenite::tungstenite::Message::Text(
+                                    intent_text.into()
+                                )
+                            )
+                            .await
+                        {
+                            eprintln!(
+                                "Failed to send input intent {intent_text} to browser: {error}"
+                            );
+                            break;
+                        }
+
+                        println!(
+                            "Input intent sent to browser: {intent_text}"
+                        );
+                    }
+                }
+            }
+
+            // This authenticated session no longer has authority to
+            // receive input intents.
+            match active_intent_sender_for_connection.lock() {
+                Ok(mut active_sender) => {
+                    *active_sender = None;
+                }
+
+                Err(error) => {
+                    eprintln!(
+                        "Failed to clear active Companion session: {error}"
+                    );
                 }
             }
 
             connected_for_connection.store(false, Ordering::SeqCst);
 
-            disable_hotkeys(&app_for_connection, &hotkeys_enabled_for_connection);
+            disable_hotkeys(
+                &app_for_connection,
+                &hotkeys_enabled_for_connection,
+            );
 
-            let _ = hotkeys_item_for_connection.set_text("Hotkeys: Disabled");
+            let _ =
+                hotkeys_item_for_connection.set_text("Hotkeys: Disabled");
 
             println!("Companion state: DISCONNECTED");
             println!("Paired browser disconnected: {address}");
@@ -309,8 +403,17 @@ fn generate_pairing_code() -> String {
 pub fn run() {
     let hotkeys_enabled = Arc::new(AtomicBool::new(false));
     let connected = Arc::new(AtomicBool::new(false));
+    let active_intent_sender = Arc::new(Mutex::new(
+        None::<tokio::sync::mpsc::UnboundedSender<InputIntent>>,
+    ));
+    let pairing_code =
+        Arc::new(Mutex::new(Some(generate_pairing_code())));
 
-    let pairing_code = Arc::new(Mutex::new(Some(generate_pairing_code())));
+    let hotkeys_enabled_for_shortcuts =
+        Arc::clone(&hotkeys_enabled);
+
+    let active_intent_sender_for_shortcuts =
+        Arc::clone(&active_intent_sender);
 
     tauri::Builder::default()
         // Single-instance must remain the first registered plugin.
@@ -320,18 +423,56 @@ pub fn run() {
         }))
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
-                .with_handler(|_app, shortcut, event| {
-                    if event.state() != ShortcutState::Pressed {
+                .with_handler(move |_app, shortcut, event| {
+                if event.state() != ShortcutState::Pressed {
+                    return;
+                }
+
+                // Defense in depth:
+                // even if an OS shortcut somehow remains registered,
+                // it has no authority unless the Companion is ARMED.
+                if !hotkeys_enabled_for_shortcuts.load(Ordering::SeqCst) {
+                    return;
+                }
+
+                for (registered_shortcut, intent) in shortcuts() {
+                    if shortcut != &registered_shortcut {
+                        continue;
+                    }
+
+                    let sender = match active_intent_sender_for_shortcuts.lock() {
+                        Ok(sender) => sender,
+                        Err(error) => {
+                            eprintln!(
+                                "Failed to access active Companion session: {error}"
+                            );
+                            return;
+                        }
+                    };
+
+                    let Some(sender) = sender.as_ref() else {
+                        eprintln!(
+                            "Input intent dropped: no authenticated browser connection"
+                        );
+                        return;
+                    };
+
+                    if let Err(error) = sender.send(intent) {
+                        eprintln!(
+                            "Failed to queue input intent {}: {error}",
+                            intent.as_str()
+                        );
                         return;
                     }
 
-                    for (registered_shortcut, intent) in shortcuts() {
-                        if shortcut == &registered_shortcut {
-                            println!("Input intent received: {}", intent.as_str());
-                            break;
-                        }
-                    }
-                })
+                    println!(
+                        "Input intent queued: {}",
+                        intent.as_str()
+                    );
+
+                    break;
+                }
+            })
                 .build(),
         )
         .plugin(tauri_plugin_opener::init())
@@ -375,6 +516,9 @@ pub fn run() {
                 let hotkeys_item_for_bridge =
                     hotkeys_item.clone();
 
+                let active_intent_sender_for_bridge =
+                    Arc::clone(&active_intent_sender);
+
                 let app_for_bridge =
                     app.handle().clone();
 
@@ -385,6 +529,7 @@ pub fn run() {
                         connected_for_bridge,
                         hotkeys_enabled_for_bridge,
                         hotkeys_item_for_bridge,
+                        active_intent_sender_for_bridge,
                     )
                 );
 

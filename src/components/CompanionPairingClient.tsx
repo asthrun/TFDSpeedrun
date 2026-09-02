@@ -54,8 +54,18 @@ export default function CompanionPairingClient() {
         "reset",
       ]);
 
-      if (typeof event.data === "string" && companionIntents.has(event.data)) {
+      if (
+        typeof event.data === "string" &&
+        companionIntents.has(event.data)
+      ) {
         console.log(`Companion intent received: ${event.data}`);
+
+        window.dispatchEvent(
+          new CustomEvent("tfdspeedrun:companion-intent", {
+            detail: event.data,
+          })
+        );
+
         return;
       }
 
