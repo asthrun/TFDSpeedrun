@@ -19,6 +19,67 @@ fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
 
+#[derive(Debug, Clone, Copy)]
+enum InputIntent {
+    StartSplitFinish,
+    PauseResume,
+    UndoSplit,
+    SkipSplit,
+    Reset,
+}
+
+impl InputIntent {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::StartSplitFinish => "start_split_finish",
+            Self::PauseResume => "pause_resume",
+            Self::UndoSplit => "undo_split",
+            Self::SkipSplit => "skip_split",
+            Self::Reset => "reset",
+        }
+    }
+}
+
+fn shortcuts() -> [(Shortcut, InputIntent); 5] {
+    [
+        (
+            Shortcut::new(
+                Some(Modifiers::CONTROL | Modifiers::SHIFT),
+                Code::F1,
+            ),
+            InputIntent::StartSplitFinish,
+        ),
+        (
+            Shortcut::new(
+                Some(Modifiers::CONTROL | Modifiers::SHIFT),
+                Code::F2,
+            ),
+            InputIntent::PauseResume,
+        ),
+        (
+            Shortcut::new(
+                Some(Modifiers::CONTROL | Modifiers::SHIFT),
+                Code::F3,
+            ),
+            InputIntent::UndoSplit,
+        ),
+        (
+            Shortcut::new(
+                Some(Modifiers::CONTROL | Modifiers::SHIFT),
+                Code::F4,
+            ),
+            InputIntent::SkipSplit,
+        ),
+        (
+            Shortcut::new(
+                Some(Modifiers::CONTROL | Modifiers::SHIFT),
+                Code::F5,
+            ),
+            InputIntent::Reset,
+        ),
+    ]
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let hotkeys_enabled = Arc::new(AtomicBool::new(false));
@@ -32,8 +93,15 @@ pub fn run() {
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|_app, shortcut, event| {
-                    if event.state() == ShortcutState::Pressed {
-                        println!("Global shortcut received: {:?}", shortcut);
+                    if event.state() != ShortcutState::Pressed {
+                        return;
+                    }
+
+                    for (registered_shortcut, intent) in shortcuts() {
+                        if shortcut == &registered_shortcut {
+                            println!("Input intent received: {}", intent.as_str());
+                            break;
+                        }
                     }
                 })
                 .build(),
@@ -70,16 +138,19 @@ pub fn run() {
                         }
 
                         "hotkeys" => {
-                            let test_shortcut = Shortcut::new(
-                                Some(Modifiers::CONTROL | Modifiers::SHIFT),
-                                Code::F1,
-                            );
+                            
 
                             let currently_enabled =
                                 hotkeys_enabled_for_menu.load(Ordering::SeqCst);
 
                             if currently_enabled {
-                                match app.global_shortcut().unregister(test_shortcut) {
+                                let result = shortcuts()
+                                    .into_iter()
+                                    .try_for_each(|(shortcut, _)| {
+                                        app.global_shortcut().unregister(shortcut)
+                                    });
+
+                                match result {
                                     Ok(_) => {
                                         hotkeys_enabled_for_menu
                                             .store(false, Ordering::SeqCst);
@@ -96,7 +167,13 @@ pub fn run() {
                                     }
                                 }
                             } else {
-                                match app.global_shortcut().register(test_shortcut) {
+                                let result = shortcuts()
+                                    .into_iter()
+                                    .try_for_each(|(shortcut, _)| {
+                                        app.global_shortcut().register(shortcut)
+                                    });
+
+                                match result {
                                     Ok(_) => {
                                         hotkeys_enabled_for_menu
                                             .store(true, Ordering::SeqCst);
@@ -104,9 +181,7 @@ pub fn run() {
                                         let _ = hotkeys_item_for_menu
                                             .set_text("Hotkeys: Enabled ✓");
 
-                                        println!(
-                                            "Hotkeys enabled: Ctrl+Shift+F1"
-                                        );
+                                        println!("Hotkeys enabled");
                                     }
                                     Err(error) => {
                                         eprintln!(
