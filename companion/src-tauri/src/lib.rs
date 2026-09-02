@@ -1,6 +1,6 @@
 use std::sync::{
     atomic::{AtomicBool, Ordering},
-    Arc,
+    Arc, Mutex,
 };
 
 use tauri::{
@@ -13,7 +13,7 @@ use tauri_plugin_global_shortcut::{
 };
 use tauri_plugin_opener::OpenerExt;
 
-use futures_util::StreamExt;
+use futures_util::{SinkExt, StreamExt};
 use tokio::net::TcpListener;
 use tokio_tungstenite::{
     accept_hdr_async,
@@ -22,6 +22,9 @@ use tokio_tungstenite::{
         http::StatusCode,
     },
 };
+use rand::RngCore;
+
+
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -98,7 +101,9 @@ fn is_allowed_origin(origin: &str) -> bool {
     ALLOWED_ORIGINS.contains(&origin)
 }
 
-async fn run_local_bridge() {
+async fn run_local_bridge(
+    pairing_code: Arc<Mutex<Option<String>>>,
+) {
     const BRIDGE_ADDRESS: &str = "127.0.0.1:38471";
 
     let listener = match TcpListener::bind(BRIDGE_ADDRESS).await {
@@ -121,7 +126,7 @@ async fn run_local_bridge() {
                 continue;
             }
         };
-
+        let pairing_code_for_connection = Arc::clone(&pairing_code);
         tauri::async_runtime::spawn(async move {
             let callback = |request: &Request, response: Response| {
             let origin = request
@@ -175,37 +180,148 @@ async fn run_local_bridge() {
                 }
             };
 
-            println!("Browser connected: {address}");
+            println!("Browser connected, awaiting pairing: {address}");
 
-            while let Some(message) = websocket.next().await {
-                match message {
-                    Ok(message) if message.is_close() => {
-                        break;
+                let pairing_message = websocket.next().await;
+
+                let supplied_pairing_code = match pairing_message {
+                    Some(Ok(message)) if message.is_text() => {
+                        match message.to_text() {
+                            Ok(text) => text.to_string(),
+
+                            Err(error) => {
+                                eprintln!(
+                                    "Invalid pairing message from {address}: {error}"
+                                );
+
+                                let _ = websocket.close(None).await;
+                                return;
+                            }
+                        }
                     }
 
-                    Ok(_) => {
-                        // Connectivity proof only.
-                        // Incoming messages intentionally do nothing.
-                    }
-
-                    Err(error) => {
+                    Some(Ok(_)) => {
                         eprintln!(
-                            "WebSocket error for {address}: {error}"
+                            "Pairing rejected for {address}: expected text message"
                         );
-                        break;
+
+                        let _ = websocket.close(None).await;
+                        return;
                     }
-                }
+
+                    Some(Err(error)) => {
+                        eprintln!(
+                            "WebSocket error during pairing for {address}: {error}"
+                        );
+                        return;
+                    }
+
+                    None => {
+                        println!(
+                            "Browser disconnected before pairing: {address}"
+                        );
+                        return;
+                    }
+                };
+
+                let pairing_accepted = {
+                    match pairing_code_for_connection.lock() {
+                        Ok(mut pairing_code) => {
+                            match pairing_code.as_ref() {
+                                Some(expected_code)
+                                    if supplied_pairing_code == expected_code.as_str() =>
+                                {
+                                    // Consume the pairing code immediately.
+                                    *pairing_code = None;
+                                    true
+                                }
+
+                                _ => false,
+                            }
+                        }
+
+                        Err(error) => {
+                            eprintln!(
+                                "Failed to access pairing state for {address}: {error}"
+                            );
+                            false
+                        }
+                    }
+                };
+
+            if !pairing_accepted {
+                eprintln!("Pairing rejected for {address}");
+
+                let _ = websocket
+                    .send(
+                        tokio_tungstenite::tungstenite::Message::Text(
+                            "pairing_rejected".into(),
+                        ),
+                    )
+                    .await;
+
+                let _ = websocket.close(None).await;
+                return;
             }
 
-            println!("Browser disconnected: {address}");
+            println!("Pairing accepted: {address}");
+
+                if let Err(error) = websocket
+                    .send(
+                        tokio_tungstenite::tungstenite::Message::Text(
+                            "pairing_ok".into(),
+                        ),
+                    )
+                    .await
+                {
+                    eprintln!(
+                        "Failed to confirm pairing for {address}: {error}"
+                    );
+                    return;
+                }
+
+                // Pairing succeeded.
+                // Timer intents are intentionally not transmitted yet.
+                while let Some(message) = websocket.next().await {
+                    match message {
+                        Ok(message) if message.is_close() => {
+                            break;
+                        }
+
+                        Ok(_) => {
+                            // Authenticated connection exists,
+                            // but incoming messages have no authority yet.
+                        }
+
+                        Err(error) => {
+                            eprintln!(
+                                "WebSocket error for {address}: {error}"
+                            );
+                            break;
+                        }
+                    }
+                }
+
+                println!("Paired browser disconnected: {address}");
         });
     }
 }
 
+fn generate_pairing_code() -> String {
+    let mut bytes = [0u8; 32];
+    rand::rng().fill_bytes(&mut bytes);
+
+    bytes
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let hotkeys_enabled = Arc::new(AtomicBool::new(false));
+    let pairing_code =
+        Arc::new(Mutex::new(Some(generate_pairing_code())));
 
     tauri::Builder::default()
         // Single-instance must remain the first registered plugin.
@@ -231,7 +347,12 @@ pub fn run() {
         )
         .plugin(tauri_plugin_opener::init())
         .setup(move |app| {
-            tauri::async_runtime::spawn(run_local_bridge());
+            let pairing_code_for_bridge = Arc::clone(&pairing_code);
+
+            tauri::async_runtime::spawn(
+                run_local_bridge(pairing_code_for_bridge)
+            );
+
             let open_item =
                 MenuItem::with_id(app, "open", "Open TFDSpeedrun", true, None::<&str>)?;
 
@@ -246,6 +367,7 @@ pub fn run() {
 
             let hotkeys_enabled_for_menu = Arc::clone(&hotkeys_enabled);
             let hotkeys_item_for_menu = hotkeys_item.clone();
+            let pairing_code_for_menu = Arc::clone(&pairing_code);
 
             TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
@@ -255,11 +377,31 @@ pub fn run() {
                 .on_menu_event(move |app, event| {
                     match event.id.as_ref() {
                         "open" => {
-                            let _ = app.opener().open_url(
-                                "https://tfdspeedrun.vercel.app",
-                                None::<&str>,
+                        let pairing_code = match pairing_code_for_menu.lock() {
+                            Ok(pairing_code) => pairing_code,
+                            Err(error) => {
+                                eprintln!("Failed to access pairing code: {error}");
+                                return;
+                            }
+                        };
+
+                        let Some(pairing_code) = pairing_code.as_ref() else {
+                            eprintln!(
+                                "Pairing code has already been used. Restart Companion to pair again."
                             );
-                        }
+                            return;
+                        };
+
+                        let url = format!(
+                            "https://tfdspeedrun.vercel.app/dashboard#companion_pair={}",
+                            pairing_code
+                        );
+
+                        let _ = app.opener().open_url(
+                            url,
+                            None::<&str>,
+                        );
+                    }
 
                         "hotkeys" => {
                             let currently_enabled =

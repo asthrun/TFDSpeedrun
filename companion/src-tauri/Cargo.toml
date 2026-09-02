@@ -25,6 +25,7 @@ serde_json = "1"
 tokio = { version = "1", features = ["net"] }
 tokio-tungstenite = "0.30"
 futures-util = "0.3"
+rand = "0.9"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-global-shortcut = "2"
