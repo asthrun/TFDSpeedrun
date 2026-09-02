@@ -138,56 +138,97 @@ pub fn run() {
                         }
 
                         "hotkeys" => {
-                            
-
                             let currently_enabled =
                                 hotkeys_enabled_for_menu.load(Ordering::SeqCst);
 
                             if currently_enabled {
-                                let result = shortcuts()
-                                    .into_iter()
-                                    .try_for_each(|(shortcut, _)| {
+                                // Disable all configured hotkeys.
+                                let mut unregister_failed = false;
+
+                                for (shortcut, _) in shortcuts() {
+                                    if let Err(error) =
                                         app.global_shortcut().unregister(shortcut)
-                                    });
-
-                                match result {
-                                    Ok(_) => {
-                                        hotkeys_enabled_for_menu
-                                            .store(false, Ordering::SeqCst);
-
-                                        let _ = hotkeys_item_for_menu
-                                            .set_text("Hotkeys: Disabled");
-
-                                        println!("Hotkeys disabled");
-                                    }
-                                    Err(error) => {
+                                    {
                                         eprintln!(
-                                            "Failed to disable hotkeys: {error}"
+                                            "Failed to unregister hotkey: {error}"
                                         );
+                                        unregister_failed = true;
                                     }
                                 }
+
+                                if unregister_failed {
+                                    eprintln!(
+                                        "One or more hotkeys could not be unregistered"
+                                    );
+                                }
+
+                                hotkeys_enabled_for_menu.store(
+                                    false,
+                                    Ordering::SeqCst,
+                                );
+
+                                let _ = hotkeys_item_for_menu
+                                    .set_text("Hotkeys: Disabled");
+
+                                println!("Hotkeys disabled");
                             } else {
-                                let result = shortcuts()
-                                    .into_iter()
-                                    .try_for_each(|(shortcut, _)| {
-                                        app.global_shortcut().register(shortcut)
-                                    });
+                                // Register the configured hotkeys one by one.
+                                // Keep track of successful registrations so we can
+                                // roll them back if a later registration fails.
+                                let mut registered_shortcuts = Vec::new();
+                                let mut registration_error = None;
 
-                                match result {
-                                    Ok(_) => {
-                                        hotkeys_enabled_for_menu
-                                            .store(true, Ordering::SeqCst);
-
-                                        let _ = hotkeys_item_for_menu
-                                            .set_text("Hotkeys: Enabled ✓");
-
-                                        println!("Hotkeys enabled");
+                                for (shortcut, _) in shortcuts() {
+                                    match app.global_shortcut().register(shortcut) {
+                                        Ok(_) => {
+                                            registered_shortcuts.push(shortcut);
+                                        }
+                                        Err(error) => {
+                                            registration_error = Some(error);
+                                            break;
+                                        }
                                     }
-                                    Err(error) => {
-                                        eprintln!(
-                                            "Failed to enable hotkeys: {error}"
-                                        );
+                                }
+
+                                if let Some(error) = registration_error {
+                                    eprintln!(
+                                        "Failed to enable hotkeys: {error}"
+                                    );
+
+                                    // Roll back everything registered during
+                                    // this enable attempt.
+                                    for shortcut in registered_shortcuts {
+                                        if let Err(rollback_error) =
+                                            app.global_shortcut().unregister(shortcut)
+                                        {
+                                            eprintln!(
+                                                "Failed to roll back hotkey registration: \
+                                                {rollback_error}"
+                                            );
+                                        }
                                     }
+
+                                    hotkeys_enabled_for_menu.store(
+                                        false,
+                                        Ordering::SeqCst,
+                                    );
+
+                                    let _ = hotkeys_item_for_menu
+                                        .set_text("Hotkeys: Disabled");
+
+                                    println!(
+                                        "Hotkey registration rolled back"
+                                    );
+                                } else {
+                                    hotkeys_enabled_for_menu.store(
+                                        true,
+                                        Ordering::SeqCst,
+                                    );
+
+                                    let _ = hotkeys_item_for_menu
+                                        .set_text("Hotkeys: Enabled ✓");
+
+                                    println!("Hotkeys enabled");
                                 }
                             }
                         }
