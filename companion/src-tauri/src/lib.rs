@@ -13,6 +13,10 @@ use tauri_plugin_global_shortcut::{
 };
 use tauri_plugin_opener::OpenerExt;
 
+use futures_util::StreamExt;
+use tokio::net::TcpListener;
+use tokio_tungstenite::accept_async;
+
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -80,6 +84,69 @@ fn shortcuts() -> [(Shortcut, InputIntent); 5] {
     ]
 }
 
+async fn run_local_bridge() {
+    const BRIDGE_ADDRESS: &str = "127.0.0.1:38471";
+
+    let listener = match TcpListener::bind(BRIDGE_ADDRESS).await {
+        Ok(listener) => listener,
+        Err(error) => {
+            eprintln!(
+                "Failed to start local bridge on {BRIDGE_ADDRESS}: {error}"
+            );
+            return;
+        }
+    };
+
+    println!("Local bridge listening on ws://{BRIDGE_ADDRESS}");
+
+    loop {
+        let (stream, address) = match listener.accept().await {
+            Ok(connection) => connection,
+            Err(error) => {
+                eprintln!("Local bridge accept error: {error}");
+                continue;
+            }
+        };
+
+        tauri::async_runtime::spawn(async move {
+            let mut websocket = match accept_async(stream).await {
+                Ok(websocket) => websocket,
+                Err(error) => {
+                    eprintln!(
+                        "WebSocket handshake failed for {address}: {error}"
+                    );
+                    return;
+                }
+            };
+
+            println!("Browser connected: {address}");
+
+            while let Some(message) = websocket.next().await {
+                match message {
+                    Ok(message) if message.is_close() => {
+                        break;
+                    }
+
+                    Ok(_) => {
+                        // Connectivity proof only.
+                        // Incoming messages intentionally do nothing.
+                    }
+
+                    Err(error) => {
+                        eprintln!(
+                            "WebSocket error for {address}: {error}"
+                        );
+                        break;
+                    }
+                }
+            }
+
+            println!("Browser disconnected: {address}");
+        });
+    }
+}
+
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let hotkeys_enabled = Arc::new(AtomicBool::new(false));
@@ -108,6 +175,7 @@ pub fn run() {
         )
         .plugin(tauri_plugin_opener::init())
         .setup(move |app| {
+            tauri::async_runtime::spawn(run_local_bridge());
             let open_item =
                 MenuItem::with_id(app, "open", "Open TFDSpeedrun", true, None::<&str>)?;
 
