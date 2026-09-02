@@ -19,6 +19,9 @@ const SETTING_FIELDS = [
   "double_tap_delay_ms",
   "save_incomplete_runs",
 
+  // Privacy
+  "privacy_mode",
+
   // Timer Layout
   "show_game_profile",
   "show_category",

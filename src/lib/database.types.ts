@@ -329,6 +329,7 @@ export type Database = {
           show_game_profile: boolean
           show_category: boolean
           show_compare_to: boolean
+          privacy_mode: boolean
         }
         Insert: {          
           font_family?: string
@@ -372,6 +373,7 @@ export type Database = {
           show_game_profile?: boolean
           show_category?: boolean
           show_compare_to?: boolean
+          privacy_mode?: boolean
         }
         Update: {          
           font_family?: string
@@ -414,6 +416,7 @@ export type Database = {
           show_game_profile?: boolean
           show_category?: boolean
           show_compare_to?: boolean
+          privacy_mode?: boolean
 
         }
         Relationships: []

@@ -110,6 +110,10 @@ export function SettingsForm({ settings }: { settings: UserSettings }) {
       settings.show_compare_to
     );
 
+    const [privacyMode, setPrivacyMode] = useState(
+      settings.privacy_mode
+    );
+
 const previewAppearance = {
   ...settings,
 
@@ -174,6 +178,50 @@ const previewAppearance = {
 
   return (
     <div className="grid gap-8">
+      <section>
+        <h2 className="text-lg font-medium">
+          Privacy
+        </h2>
+
+        <p className="mt-1 text-sm text-zinc-400">
+          Protect identifying account information when sharing
+          TFDSpeedrun on stream, screenshots, or recordings.
+        </p>
+
+        <label className="mt-3 flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={privacyMode}
+            disabled={pending}
+            onChange={(e) => {
+              const checked = e.target.checked;
+
+              setPrivacyMode(checked);
+
+              startTransition(async () => {
+                const saved = await saveSetting(
+                  { privacy_mode: checked },
+                  checked
+                    ? "Privacy Mode enabled."
+                    : "Privacy Mode disabled."
+                );
+
+                if (!saved) {
+                  setPrivacyMode(!checked);
+                }
+              });
+            }}
+          />
+
+          Streamer / Privacy Mode
+        </label>
+
+        <p className="mt-2 text-xs text-zinc-500">
+          When enabled, identifying account information is hidden
+          or masked in the interface. This does not change your
+          stored account data.
+        </p>
+      </section>
       <section>
           <h2 className="text-lg font-medium">
             Timer Layout
