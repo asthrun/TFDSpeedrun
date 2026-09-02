@@ -61,3 +61,71 @@ export async function changeUsername(
     success: "Username updated.",
   };
 }
+
+export type EmailState = {
+  error?: string;
+  success?: string;
+};
+
+export async function changeEmail(
+  _previousState: EmailState,
+  formData: FormData
+): Promise<EmailState> {
+  const { supabase, user } = await requireUser();
+
+  const rawEmail = formData.get("email");
+
+  if (typeof rawEmail !== "string") {
+    return {
+      error: "Enter a valid email address.",
+    };
+  }
+
+  const email = rawEmail.trim().toLowerCase();
+
+  if (!email) {
+    return {
+      error: "Email address is required.",
+    };
+  }
+
+  if (email.length > 254) {
+    return {
+      error: "Email address is too long.",
+    };
+  }
+
+  const emailPattern =
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  if (!emailPattern.test(email)) {
+    return {
+      error: "Enter a valid email address.",
+    };
+  }
+
+  if (user.email?.toLowerCase() === email) {
+    return {
+      error: "This is already your current email address.",
+    };
+  }
+
+  const { error } = await supabase.auth.updateUser({
+    email,
+  });
+
+  if (error) {
+    console.error("Failed to change email address:", error);
+
+    return {
+      error: "Unable to change your email address. Please try again.",
+    };
+  }
+
+  revalidatePath("/account");
+
+  return {
+    success:
+      "Email change requested. Check your email to confirm the new address.",
+  };
+}

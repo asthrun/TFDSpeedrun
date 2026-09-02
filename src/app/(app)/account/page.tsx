@@ -1,5 +1,6 @@
 import { getSettings, requireUser } from "@/lib/auth";
 import { ChangeUsernameForm } from "./ChangeUsernameForm";
+import { ChangeEmailForm } from "./ChangeEmailForm";
 
 function maskEmail(email: string) {
   const [localPart, domain] = email.split("@");
@@ -56,13 +57,7 @@ export default async function AccountPage() {
           <p className="mt-1">{displayedUsername}</p>
         </div>
 
-        <button
-          type="button"
-          disabled
-          className="mt-4 rounded-md border border-zinc-700 px-3 py-2 text-sm text-zinc-500"
-        >
-          Change Username
-        </button>
+        <ChangeUsernameForm currentUsername={username} />
       </section>
 
       <section className="rounded-lg border border-zinc-800 p-5">
@@ -73,13 +68,7 @@ export default async function AccountPage() {
           <p className="mt-1">{displayedEmail}</p>
         </div>
 
-        <button
-          type="button"
-          disabled
-          className="mt-4 rounded-md border border-zinc-700 px-3 py-2 text-sm text-zinc-500"
-        >
-          Change Email Address
-        </button>
+        <ChangeEmailForm currentEmail={email} />
       </section>
 
       <section className="rounded-lg border border-zinc-800 p-5">
