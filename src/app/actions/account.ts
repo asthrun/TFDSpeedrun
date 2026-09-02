@@ -2,6 +2,9 @@
 
 import { requireUser } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { redirect } from "next/navigation";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export type UsernameState = {
   error?: string;
@@ -289,4 +292,152 @@ export async function changePasswordWithNonce(
   return {
     success: "Password changed successfully.",
   };
+}
+
+export type DeleteAccountState = {
+  error?: string;
+};
+
+export async function deleteAccount(
+  _previousState: DeleteAccountState,
+  formData: FormData
+): Promise<DeleteAccountState> {
+  const { supabase, user } = await requireUser();
+
+  const rawConfirmation = formData.get("confirmation");
+  const rawCurrentPassword = formData.get("currentPassword");
+
+  if (
+    typeof rawConfirmation !== "string" ||
+    typeof rawCurrentPassword !== "string"
+  ) {
+    return {
+      error: "Enter DELETE and your current password.",
+    };
+  }
+
+  if (rawConfirmation !== "DELETE") {
+    return {
+      error: "Type DELETE exactly to confirm account deletion.",
+    };
+  }
+
+  if (!rawCurrentPassword) {
+    return {
+      error: "Current password is required.",
+    };
+  }
+
+  if (!user.email) {
+    console.error(
+      "Cannot delete account because authenticated user has no email:",
+      user.id
+    );
+
+    return {
+      error: "Unable to verify your account. Please try again.",
+    };
+  }
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!url || !anonKey) {
+    console.error(
+      "Missing Supabase public configuration during account deletion."
+    );
+
+    return {
+      error: "Unable to delete your account. Please try again.",
+    };
+  }
+
+  /*
+   * Use a completely separate client to verify the password.
+   * This client does not share the authenticated browser session.
+   */
+  const verificationClient = createSupabaseClient(
+    url,
+    anonKey,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+        detectSessionInUrl: false,
+      },
+    }
+  );
+
+  const {
+    data: verificationData,
+    error: verificationError,
+  } = await verificationClient.auth.signInWithPassword({
+    email: user.email,
+    password: rawCurrentPassword,
+  });
+
+  if (
+    verificationError ||
+    !verificationData.user ||
+    verificationData.user.id !== user.id
+  ) {
+    console.error(
+      "Account deletion password verification failed:",
+      verificationError
+    );
+
+    return {
+      error: "Current password is incorrect.",
+    };
+  }
+
+  /*
+   * Clear the user's current authenticated session before
+   * permanently removing the Auth user.
+   *
+   * If this fails, do not continue with deletion.
+   */
+  const { error: signOutError } =
+    await supabase.auth.signOut();
+
+  if (signOutError) {
+    console.error(
+      "Failed to sign out user before account deletion:",
+      signOutError
+    );
+
+    return {
+      error: "Unable to delete your account. Please try again.",
+    };
+  }
+
+  /*
+   * From this point onward, only the server-side admin client
+   * is allowed to perform the destructive operation.
+   *
+   * The user ID comes exclusively from requireUser().
+   * It is never accepted from FormData.
+   */
+  const admin = createAdminClient();
+
+  const { error: deleteError } =
+    await admin.auth.admin.deleteUser(user.id, false);
+
+  if (deleteError) {
+    console.error(
+      "Failed to permanently delete account:",
+      deleteError
+    );
+
+    /*
+     * At this point the user has been signed out, but their
+     * account still exists. They can sign in again.
+     */
+    return {
+      error:
+        "Unable to delete your account. Your account has not been deleted. Please sign in and try again.",
+    };
+  }
+
+  redirect("/");
 }

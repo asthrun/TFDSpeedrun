@@ -3,6 +3,7 @@ import { ChangeUsernameForm } from "./ChangeUsernameForm";
 import { ChangeEmailForm } from "./ChangeEmailForm";
 import { ChangePasswordForm } from "./ChangePasswordForm";
 import { AccountDataExport } from "./AccountDataExport";
+import { DeleteAccountForm } from "./DeleteAccountForm";
 
 function maskEmail(email: string) {
   const [localPart, domain] = email.split("@");
@@ -97,8 +98,9 @@ export default async function AccountPage() {
         <p className="mt-2 text-sm text-zinc-400">
           Permanently delete your account and its associated data.
         </p>
-
         <AccountDataExport />
+        <DeleteAccountForm />
+        
           Delete Account
       </section>
     </main>
