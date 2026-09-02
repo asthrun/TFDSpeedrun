@@ -1,6 +1,7 @@
 import { getSettings, requireUser } from "@/lib/auth";
 import { ChangeUsernameForm } from "./ChangeUsernameForm";
 import { ChangeEmailForm } from "./ChangeEmailForm";
+import { ChangePasswordForm } from "./ChangePasswordForm";
 
 function maskEmail(email: string) {
   const [localPart, domain] = email.split("@");
@@ -78,13 +79,7 @@ export default async function AccountPage() {
           Manage the password used to sign in to your account.
         </p>
 
-        <button
-          type="button"
-          disabled
-          className="mt-4 rounded-md border border-zinc-700 px-3 py-2 text-sm text-zinc-500"
-        >
-          Change Password
-        </button>
+        <ChangePasswordForm />
       </section>
 
       <section className="rounded-lg border border-red-900/60 p-5">
