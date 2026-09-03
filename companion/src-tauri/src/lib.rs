@@ -1,6 +1,9 @@
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc, Mutex,
+use std::{
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
+    time::{Duration, Instant},
 };
 
 use tauri::{
@@ -296,7 +299,7 @@ fn is_allowed_origin(origin: &str) -> bool {
 
 async fn run_local_bridge(
     app: tauri::AppHandle,
-    pairing_code: Arc<Mutex<Option<String>>>,
+    pairing_code: Arc<Mutex<PairingState>>,
     connected: Arc<AtomicBool>,
     hotkeys_enabled: Arc<AtomicBool>,
     hotkeys_item: MenuItem<tauri::Wry>,
@@ -389,56 +392,72 @@ async fn run_local_bridge(
 
             println!("Browser connected, awaiting pairing: {address}");
 
-            let pairing_message = websocket.next().await;
+            let pairing_message =
+                tokio::time::timeout(
+                    std::time::Duration::from_secs(10),
+                    websocket.next(),
+                )
+                .await;
 
             let supplied_pairing_code = match pairing_message {
-                Some(Ok(message)) if message.is_text() => match message.to_text() {
-                    Ok(text) => text.to_string(),
+                Ok(Some(Ok(message))) if message.is_text() => {
+                    match message.to_text() {
+                        Ok(text) => text.to_string(),
 
-                    Err(error) => {
-                        eprintln!("Invalid pairing message from {address}: {error}");
+                        Err(error) => {
+                            eprintln!(
+                                "Invalid pairing message from {address}: {error}"
+                            );
 
-                        let _ = websocket.close(None).await;
-                        return;
+                            let _ = websocket.close(None).await;
+                            return;
+                        }
                     }
-                },
+                }
 
-                Some(Ok(_)) => {
-                    eprintln!("Pairing rejected for {address}: expected text message");
+                Ok(Some(Ok(_))) => {
+                    eprintln!(
+                        "Pairing rejected for {address}: expected text message"
+                    );
 
                     let _ = websocket.close(None).await;
                     return;
                 }
 
-                Some(Err(error)) => {
-                    eprintln!("WebSocket error during pairing for {address}: {error}");
+                Ok(Some(Err(error))) => {
+                    eprintln!(
+                        "WebSocket error during pairing for {address}: {error}"
+                    );
                     return;
                 }
 
-                None => {
-                    println!("Browser disconnected before pairing: {address}");
+                Ok(None) => {
+                    println!(
+                        "Browser disconnected before pairing: {address}"
+                    );
+                    return;
+                }
+
+                Err(_) => {
+                    eprintln!(
+                        "Pairing timed out for {address}: no pairing code received within 10 seconds"
+                    );
+
+                    let _ = websocket.close(None).await;
                     return;
                 }
             };
 
             let pairing_accepted = {
                 match pairing_code_for_connection.lock() {
-                    Ok(mut pairing_code) => {
-                        match pairing_code.as_ref() {
-                            Some(expected_code)
-                                if supplied_pairing_code == expected_code.as_str() =>
-                            {
-                                // Consume the pairing code immediately.
-                                *pairing_code = None;
-                                true
-                            }
-
-                            _ => false,
-                        }
+                    Ok(mut pairing_state) => {
+                        pairing_state.consume_if_matches(&supplied_pairing_code)
                     }
 
                     Err(error) => {
-                        eprintln!("Failed to access pairing state for {address}: {error}");
+                        eprintln!(
+                            "Failed to access pairing state for {address}: {error}"
+                        );
                         false
                     }
                 }
@@ -696,6 +715,44 @@ async fn run_local_bridge(
     }
 }
 
+const PAIRING_CODE_LIFETIME: Duration = Duration::from_secs(120);
+
+struct PairingState {
+    code: Option<String>,
+    created_at: Instant,
+}
+
+impl PairingState {
+    fn new() -> Self {
+        Self {
+            code: Some(generate_pairing_code()),
+            created_at: Instant::now(),
+        }
+    }
+
+    fn valid_code(&self) -> Option<&str> {
+        let code = self.code.as_deref()?;
+
+        if self.created_at.elapsed() >= PAIRING_CODE_LIFETIME {
+            return None;
+        }
+
+        Some(code)
+    }
+
+    fn consume_if_matches(&mut self, supplied_code: &str) -> bool {
+        let matches = self
+            .valid_code()
+            .is_some_and(|expected_code| expected_code == supplied_code);
+
+        if matches {
+            self.code = None;
+        }
+
+        matches
+    }
+}
+
 fn generate_pairing_code() -> String {
     let mut bytes = [0u8; 32];
     rand::rng().fill_bytes(&mut bytes);
@@ -713,7 +770,7 @@ pub fn run() {
         None::<tokio::sync::mpsc::UnboundedSender<InputIntent>>,
     ));
     let pairing_code =
-        Arc::new(Mutex::new(Some(generate_pairing_code())));
+        Arc::new(Mutex::new(PairingState::new()));
 
     let hotkeys_enabled_for_shortcuts =
         Arc::clone(&hotkeys_enabled);
@@ -888,9 +945,9 @@ pub fn run() {
                             }
                         };
 
-                        let Some(pairing_code) = pairing_code.as_ref() else {
+                        let Some(pairing_code) = pairing_code.valid_code() else {
                             eprintln!(
-                                "Pairing code has already been used. Restart Companion to pair again."
+                                "Pairing code is unavailable or expired. Restart Companion to pair again."
                             );
                             return;
                         };

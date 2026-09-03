@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useCompanionStatus } from "@/components/CompanionStatusProvider";
 
 const COMPANION_BRIDGE_URL = "ws://127.0.0.1:38471";
 
@@ -37,6 +38,8 @@ function sendShortcutConfiguration(
 export default function CompanionPairingClient({
   shortcuts,
 }: Props) {
+  const { setStatus } = useCompanionStatus();
+
   const websocketRef = useRef<WebSocket | null>(null);
   const pairedRef = useRef(false);
   const shortcutsRef = useRef(shortcuts);
@@ -100,6 +103,7 @@ export default function CompanionPairingClient({
     websocket.onmessage = (event) => {
       if (event.data === "pairing_ok") {
         pairedRef.current = true;
+        setStatus("connected");
 
         console.log("TFDSpeedrun Companion connected.");
 
@@ -153,6 +157,7 @@ export default function CompanionPairingClient({
 
     websocket.onclose = () => {
       pairedRef.current = false;
+      setStatus("disconnected");
 
       if (websocketRef.current === websocket) {
         websocketRef.current = null;
@@ -163,6 +168,7 @@ export default function CompanionPairingClient({
 
     return () => {
       pairedRef.current = false;
+      setStatus("disconnected");
 
       if (websocketRef.current === websocket) {
         websocketRef.current = null;
@@ -170,7 +176,7 @@ export default function CompanionPairingClient({
 
       websocket.close();
     };
-  }, []);
+  }, [setStatus]);
 
   return null;
 }
