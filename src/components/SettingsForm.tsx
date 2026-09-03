@@ -1006,11 +1006,10 @@ const previewAppearance = {
     </div>
   </section>
 
-  <section>
-    <h2 className="text-lg font-medium">
-      Controls
-    </h2>
-        <p className="text-sm text-zinc-400">Empty by default. Click a field, then press a key. Clear is allowed.</p>
+  <SettingSection
+          title="Controls"
+          description="Configure keyboard controls and input protection for the timer."
+        >
         <form
           action={async (formData) => {
             try {
@@ -1040,8 +1039,9 @@ const previewAppearance = {
               });
             }
           }}
-          className="mt-3 grid gap-3"
+          className="mt-1"
         >
+          <div className="grid gap-x-6 gap-y-3 lg:grid-cols-2">
           <ShortcutInput
             name="shortcut_start_split"
             label="Start / Split / Finish"
@@ -1081,57 +1081,74 @@ const previewAppearance = {
               settings.shortcut_reset
             }
           />
-          <button type="submit" className="w-fit rounded-lg bg-zinc-100 px-4 py-2 font-medium text-zinc-950">
+         </div>
+          <div className="mt-4 flex justify-end border-t border-zinc-800 pt-4">
+          <button
+            type="submit"
+            className="
+              rounded-lg bg-zinc-100 px-4 py-2
+              text-sm font-medium text-zinc-950
+              transition-colors
+              hover:bg-white
+              focus:outline-none
+              focus:ring-2
+              focus:ring-zinc-500
+              focus:ring-offset-2
+              focus:ring-offset-zinc-950
+            "
+          >
             Save shortcuts
           </button>
-        </form>
-
-        <div className="mt-6 grid gap-4">
-          <label className="grid gap-1 text-sm">
-            Double Tap Prevention
-
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                min="0"
-                max="5000"
-                step="1"
-                defaultValue={
-                  settings.double_tap_delay_ms
-                }
-                disabled={pending}
-                className="w-32 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"
-                onBlur={(e) => {
-                  const value = Number(
-                    e.target.value
-                  );
-
-                  startTransition(async () => {
-                    await saveSetting(
-                      {
-                        double_tap_delay_ms:
-                          value,
-                      },
-                      "Double Tap Prevention saved.",
-                    );
-                  });
-                }}
-              />
-
-              <span className="text-zinc-400">
-                ms
-              </span>
-            </div>
-
-            <span className="text-xs text-zinc-500">
-              Prevents accidental repeated keyboard
-              actions. Set to 0 to disable.
-            </span>
-          </label>
-
         </div>
+          </form>
 
-      </section>
+          <div className="mt-4 border-t border-zinc-800 pt-4">
+    <SettingRow
+      label="Double Tap Prevention"
+      description="Prevents accidental repeated keyboard actions. Set to 0 to disable."
+    >
+      <div className="flex items-center gap-2">
+        <input
+          type="number"
+          min="0"
+          max="5000"
+          step="1"
+          defaultValue={settings.double_tap_delay_ms}
+          disabled={pending}
+          className="
+            w-28 rounded-lg border border-zinc-700
+            bg-zinc-900 px-3 py-2 text-sm
+            transition-colors
+            hover:border-zinc-500
+            focus:border-zinc-400
+            focus:outline-none
+            focus:ring-2
+            focus:ring-zinc-700
+            disabled:cursor-not-allowed
+            disabled:opacity-50
+          "
+          onBlur={(e) => {
+            const value = Number(e.target.value);
+
+            startTransition(async () => {
+              await saveSetting(
+                {
+                  double_tap_delay_ms: value,
+                },
+                "Double Tap Prevention saved."
+              );
+            });
+          }}
+        />
+
+        <span className="text-sm text-zinc-400">
+          ms
+        </span>
+      </div>
+    </SettingRow>
+  </div>
+
+      </SettingSection>
 
       <section>
         <h2 className="text-lg font-medium">Export</h2>
