@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "companion",
+  "productName": "TFDSpeedrun Companion",
   "version": "0.1.0",
   "identifier": "com.tfdspeedrun.companion",
   "build": {
@@ -13,7 +13,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "companion",
+        "title": "TFDSpeedrun Companion",
         "width": 800,
         "height": 600,
         "visible": false
