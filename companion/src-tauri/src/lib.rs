@@ -304,7 +304,7 @@ async fn run_local_bridge(
     hotkeys_enabled: Arc<AtomicBool>,
     hotkeys_item: MenuItem<tauri::Wry>,
     active_intent_sender: Arc<
-        Mutex<Option<tokio::sync::mpsc::UnboundedSender<InputIntent>>>,
+        Mutex<Option<tokio::sync::mpsc::Sender<InputIntent>>>,
     >,
     configured_shortcuts: Arc<Mutex<Vec<ConfiguredShortcut>>>,
 ) {
@@ -501,7 +501,7 @@ async fn run_local_bridge(
             // browser connection. The global shortcut handler gets
             // the sender; this WebSocket task owns the receiver.
             let (intent_sender, mut intent_receiver) =
-                tokio::sync::mpsc::unbounded_channel::<InputIntent>();
+                tokio::sync::mpsc::channel::<InputIntent>(32);
 
             let intent_channel_activated = {
                 match active_intent_sender_for_connection.lock() {
@@ -740,6 +740,21 @@ impl PairingState {
         Some(code)
     }
 
+    fn get_or_refresh_code(&mut self) -> String {
+        if let Some(code) = self.valid_code() {
+            return code.to_string();
+        }
+
+        let code = generate_pairing_code();
+
+        self.code = Some(code.clone());
+        self.created_at = Instant::now();
+
+        println!("Generated a new pairing code");
+
+        code
+    }
+
     fn consume_if_matches(&mut self, supplied_code: &str) -> bool {
         let matches = self
             .valid_code()
@@ -767,7 +782,7 @@ pub fn run() {
     let configured_shortcuts =
         Arc::new(Mutex::new(Vec::<ConfiguredShortcut>::new()));
     let active_intent_sender = Arc::new(Mutex::new(
-        None::<tokio::sync::mpsc::UnboundedSender<InputIntent>>,
+        None::<tokio::sync::mpsc::Sender<InputIntent>>,
     ));
     let pairing_code =
         Arc::new(Mutex::new(PairingState::new()));
@@ -842,18 +857,28 @@ pub fn run() {
                 return;
             };
 
-            if let Err(error) = sender.send(intent) {
-                eprintln!(
-                    "Failed to queue input intent {}: {error}",
-                    intent.as_str()
-                );
-                return;
-            }
+            match sender.try_send(intent) {
+                Ok(_) => {
+                    println!(
+                        "Input intent queued: {}",
+                        intent.as_str()
+                    );
+                }
 
-            println!(
-                "Input intent queued: {}",
-                intent.as_str()
-            );
+                Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => {
+                    eprintln!(
+                        "Input intent dropped because the queue is full: {}",
+                        intent.as_str()
+                    );
+                }
+
+                Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => {
+                    eprintln!(
+                        "Input intent dropped because the authenticated browser connection is closed: {}",
+                        intent.as_str()
+                    );
+                }
+            }
             })
                 .build(),
         )
@@ -937,31 +962,29 @@ pub fn run() {
                 .on_menu_event(move |app, event| {
                     match event.id.as_ref() {
                         "open" => {
-                        let pairing_code = match pairing_code_for_menu.lock() {
-                            Ok(pairing_code) => pairing_code,
-                            Err(error) => {
-                                eprintln!("Failed to access pairing code: {error}");
-                                return;
-                            }
-                        };
+                            let pairing_code = match pairing_code_for_menu.lock() {
+                                Ok(mut pairing_state) => {
+                                    pairing_state.get_or_refresh_code()
+                                }
 
-                        let Some(pairing_code) = pairing_code.valid_code() else {
-                            eprintln!(
-                                "Pairing code is unavailable or expired. Restart Companion to pair again."
+                                Err(error) => {
+                                    eprintln!(
+                                        "Failed to access pairing state: {error}"
+                                    );
+                                    return;
+                                }
+                            };
+
+                            let url = format!(
+                                "https://tfdspeedrun.vercel.app/dashboard#companion_pair={}",
+                                pairing_code
                             );
-                            return;
-                        };
 
-                        let url = format!(
-                            "https://tfdspeedrun.vercel.app/dashboard#companion_pair={}",
-                            pairing_code
-                        );
-
-                        let _ = app.opener().open_url(
-                            url,
-                            None::<&str>,
-                        );
-                    }
+                            let _ = app.opener().open_url(
+                                url,
+                                None::<&str>,
+                            );
+                        }
 
                         "hotkeys" => {
                             let currently_enabled =
