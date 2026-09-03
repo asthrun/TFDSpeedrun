@@ -10,6 +10,7 @@ import { AppearancePreview } from "@/components/AppearancePreview";
 import { SettingSection } from "@/components/settings/SettingSection";
 import { SettingRow } from "@/components/settings/SettingRow";
 import { ToggleSwitch } from "@/components/settings/ToggleSwitch";
+import { ColorSettingRow } from "@/components/settings/ColorSettingRow";
 
 export function SettingsForm({ settings }: { settings: UserSettings }) {
   
@@ -187,8 +188,7 @@ const previewAppearance = {
     <div className="grid gap-8">
       <SettingSection
         title="Privacy"
-        description="Protect identifying account information when sharing TFDSpeedrun on stream, screenshots, or recordings."
-      >
+        >
         <SettingRow
           label="Streamer / Privacy Mode"
           description="Hide or mask identifying account information in the interface. This does not change your stored account data."
@@ -354,282 +354,322 @@ const previewAppearance = {
       <section>
         <h2 className="text-lg font-medium">Appearance / OBS</h2>
         
-        <div className="grid gap-4">
-          <h3 className="text-lg font-semibold">
-            Timer Background
-          </h3>
+        <div className="mt-4 grid gap-6">
+          <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-4">
+            <h3 className="font-semibold text-zinc-100">
+              Timer Background
+            </h3>
 
-          <label className="grid gap-1 text-sm">
-            Background mode
+            <div className="mt-3 divide-y divide-zinc-800">
+              <SettingRow label="Background mode">
+                <select
+                  value={timerBackgroundMode}
+                  disabled={pending}
+                  onChange={(e) => {
+                    const value = e.target.value;
 
-            <select
-              value={timerBackgroundMode}
-              onChange={(e) => {
-                const value = e.target.value;
+                    if (
+                      value !== "transparent" &&
+                      value !== "solid"
+                    ) {
+                      return;
+                    }
 
-                if (
-                  value !== "transparent" &&
-                  value !== "solid"
-                ) {
-                  return;
-                }
+                    const previous = timerBackgroundMode;
+                    setTimerBackgroundMode(value);
 
-                setTimerBackgroundMode(value);
-
-                startTransition(async () => {
-                  await saveSetting(
-                    { timer_background_mode: value },
-                    "Timer background saved."
-                  );
-                });
-
-                
-              }}
-              className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"
-            >
-              <option value="transparent">
-                Transparent
-              </option>
-
-              <option value="solid">
-                Solid color
-              </option>
-            </select>
-          </label>
-
-          {timerBackgroundMode === "solid" && (
-            <>
-              <label className="grid gap-1 text-sm">
-                Background color
-
-                <input
-                  type="color"
-                  value={timerBackgroundColor}
-                  onChange={(e) =>
-                    setTimerBackgroundColor(e.target.value)
-                  }
-                />
-              </label>
-
-              <button
-                type="button"
-                className="w-fit rounded-lg bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-950"
-                onClick={() =>
-                  startTransition(async () => {
-                    await saveSetting(
-                      {
-                        timer_background_color:
-                          timerBackgroundColor,
-                      },
-                      "Timer background color saved."
-                    );
-                  })
-                }
-              >
-                Save color
-              </button>
-
-              <label className="grid gap-1 text-sm">
-                Opacity:{" "}
-                {Math.round(timerBackgroundOpacity * 100)}%
-
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.05"
-                  value={timerBackgroundOpacity}
-                  onChange={(e) =>
-                    setTimerBackgroundOpacity(
-                      Number(e.target.value)
-                    )
-                  }
-                  onMouseUp={() =>
                     startTransition(async () => {
-                      await saveSetting(
-                        {
-                          timer_background_opacity:
-                            timerBackgroundOpacity,
-                        },
-                        "Timer background opacity saved."
+                      const saved = await saveSetting(
+                        { timer_background_mode: value },
+                        "Timer background saved."
                       );
-                    })
-                  }
-                />
-              </label>
-            </>
-          )}
 
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={textShadow}
-              onChange={(e) => {
-                const checked = e.target.checked;
-                setTextShadow(checked);
-                startTransition(async () => {
-                  await saveSetting(
-                    { text_shadow: checked },
-                    "Text shadow saved."
-                  );
-                });
-              }}
-            />
+                      if (!saved) {
+                        setTimerBackgroundMode(previous);
+                      }
+                    });
+                  }}
+                  className="
+                    min-w-40 rounded-lg border border-zinc-700
+                    bg-zinc-900 px-3 py-2 text-sm
+                    transition-colors
+                    hover:border-zinc-500
+                    focus:border-zinc-400
+                    focus:outline-none
+                    focus:ring-2
+                    focus:ring-zinc-700
+                    disabled:cursor-not-allowed
+                    disabled:opacity-50
+                  "
+                >
+                  <option value="transparent">
+                    Transparent
+                  </option>
 
-            Text shadow
-          </label>
-        </div>
+                  <option value="solid">
+                    Solid color
+                  </option>
+                </select>
+              </SettingRow>
 
-        <div className="mt-6 grid gap-4">
-          <h3 className="text-lg font-semibold">
-            Split Background
-          </h3>
+              {timerBackgroundMode === "solid" && (
+                <>
+                  <ColorSettingRow
+                    label="Background color"
+                    value={timerBackgroundColor}
+                    onChange={setTimerBackgroundColor}
+                    disabled={pending}
+                  />
 
-          <label className="grid gap-1 text-sm">
-            Background mode
+                  <SettingRow
+                    label="Opacity"
+                    description="Adjust how transparent the timer background appears."
+                  >
+                    <div className="flex min-w-64 items-center gap-3">
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value={timerBackgroundOpacity}
+                        disabled={pending}
+                        onChange={(e) =>
+                          setTimerBackgroundOpacity(
+                            Number(e.target.value)
+                          )
+                        }
+                        onMouseUp={() =>
+                          startTransition(async () => {
+                            await saveSetting(
+                              {
+                                timer_background_opacity:
+                                  timerBackgroundOpacity,
+                              },
+                              "Timer background opacity saved."
+                            );
+                          })
+                        }
+                        className="
+                          w-full cursor-pointer
+                          disabled:cursor-not-allowed
+                          disabled:opacity-50
+                        "
+                      />
 
-            <select
-              value={splitsBackgroundMode}
-              disabled={pending}
-              onChange={(e) => {
-                const value = e.target.value;
+                      <span className="w-12 text-right text-sm tabular-nums text-zinc-400">
+                        {Math.round(
+                          timerBackgroundOpacity * 100
+                        )}
+                        %
+                      </span>
+                    </div>
+                  </SettingRow>
 
-                if (
-                  value !== "transparent" &&
-                  value !== "solid" &&
-                  value !== "alternating"
-                ) {
-                  return;
-                }
+                  <div className="flex justify-end pt-4">
+                    <button
+                      type="button"
+                      disabled={pending}
+                      className="
+                        rounded-lg bg-zinc-100 px-4 py-2
+                        text-sm font-medium text-zinc-950
+                        transition-colors
+                        hover:bg-white
+                        focus:outline-none
+                        focus:ring-2
+                        focus:ring-zinc-500
+                        focus:ring-offset-2
+                        focus:ring-offset-zinc-950
+                        disabled:cursor-not-allowed
+                        disabled:opacity-50
+                      "
+                      onClick={() =>
+                        startTransition(async () => {
+                          await saveSetting(
+                            {
+                              timer_background_color:
+                                timerBackgroundColor,
+                              timer_background_opacity:
+                                timerBackgroundOpacity,
+                            },
+                            "Timer background appearance saved."
+                          );
+                        })
+                      }
+                    >
+                      Save background
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
 
-                setSplitsBackgroundMode(value);
+          <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-4">
+            <h3 className="font-semibold text-zinc-100">
+              Split Background
+            </h3>
 
-                startTransition(async () => {
-                  await saveSetting(
-                    { splits_background_mode: value },
-                    "Split background saved."
-                  );
-                });
-              }}
-              className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"
-            >
-              <option value="transparent">
-                Transparent
-              </option>
+            <div className="mt-3 divide-y divide-zinc-800">
+              <SettingRow label="Background mode">
+                <select
+                  value={splitsBackgroundMode}
+                  disabled={pending}
+                  onChange={(e) => {
+                    const value = e.target.value;
 
-              <option value="solid">
-                Solid color
-              </option>
+                    if (
+                      value !== "transparent" &&
+                      value !== "solid" &&
+                      value !== "alternating"
+                    ) {
+                      return;
+                    }
 
-              <option value="alternating">
-                Alternating colors
-              </option>
-            </select>
-          </label>
+                    const previous = splitsBackgroundMode;
+                    setSplitsBackgroundMode(value);
 
-          {splitsBackgroundMode !== "transparent" && (
-            <>
-              <label className="grid gap-1 text-sm">
-                Background color
+                    startTransition(async () => {
+                      const saved = await saveSetting(
+                        { splits_background_mode: value },
+                        "Split background saved."
+                      );
 
-                <input
-                  type="color"
+                      if (!saved) {
+                        setSplitsBackgroundMode(previous);
+                      }
+                    });
+                  }}
+                  className="
+                    min-w-40 rounded-lg border border-zinc-700
+                    bg-zinc-900 px-3 py-2 text-sm
+                    transition-colors
+                    hover:border-zinc-500
+                    focus:border-zinc-400
+                    focus:outline-none
+                    focus:ring-2
+                    focus:ring-zinc-700
+                    disabled:cursor-not-allowed
+                    disabled:opacity-50
+                  "
+                >
+                  <option value="transparent">
+                    Transparent
+                  </option>
+
+                  <option value="solid">
+                    Solid color
+                  </option>
+
+                  <option value="alternating">
+                    Alternating colors
+                  </option>
+                </select>
+              </SettingRow>
+
+              {splitsBackgroundMode !== "transparent" && (
+                <ColorSettingRow
+                  label="Background color"
                   value={splitsBackgroundColor1}
+                  onChange={setSplitsBackgroundColor1}
                   disabled={pending}
-                  onChange={(e) =>
-                    setSplitsBackgroundColor1(e.target.value)
-                  }
                 />
-              </label>
+              )}
 
-              <button
-                type="button"
-                disabled={pending}
-                className="w-fit rounded-lg bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-950 disabled:opacity-50"
-                onClick={() =>
-                  startTransition(async () => {
-                    await saveSetting(
-                      {
-                        splits_background_color_1:
-                          splitsBackgroundColor1,
-                      },
-                      "Split background color saved."
-                    );
-                  })
-                }
-              >
-                Save color
-              </button>
-            </>
-          )}
-
-          {splitsBackgroundMode === "alternating" && (
-            <>
-              <label className="grid gap-1 text-sm">
-                Alternating color
-
-                <input
-                  type="color"
+              {splitsBackgroundMode === "alternating" && (
+                <ColorSettingRow
+                  label="Alternating color"
                   value={splitsBackgroundColor2}
+                  onChange={setSplitsBackgroundColor2}
                   disabled={pending}
-                  onChange={(e) =>
-                    setSplitsBackgroundColor2(e.target.value)
-                  }
                 />
-              </label>
+              )}
 
-              <button
-                type="button"
-                disabled={pending}
-                className="w-fit rounded-lg bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-950 disabled:opacity-50"
-                onClick={() =>
-                  startTransition(async () => {
-                    await saveSetting(
-                      {
-                        splits_background_color_2:
-                          splitsBackgroundColor2,
-                      },
-                      "Alternating split color saved."
-                    );
-                  })
-                }
-              >
-                Save alternating color
-              </button>
-            </>
-          )}
+              {splitsBackgroundMode !== "transparent" && (
+                <>
+                  <SettingRow
+                    label="Opacity"
+                    description="Adjust how transparent the split background appears."
+                  >
+                    <div className="flex min-w-64 items-center gap-3">
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value={splitsBackgroundOpacity}
+                        disabled={pending}
+                        onChange={(e) =>
+                          setSplitsBackgroundOpacity(
+                            Number(e.target.value)
+                          )
+                        }
+                        onMouseUp={() =>
+                          startTransition(async () => {
+                            await saveSetting(
+                              {
+                                splits_background_opacity:
+                                  splitsBackgroundOpacity,
+                              },
+                              "Split background opacity saved."
+                            );
+                          })
+                        }
+                        className="
+                          w-full cursor-pointer
+                          disabled:cursor-not-allowed
+                          disabled:opacity-50
+                        "
+                      />
 
-          {splitsBackgroundMode !== "transparent" && (
-            <label className="grid gap-1 text-sm">
-              Opacity:{" "}
-              {Math.round(splitsBackgroundOpacity * 100)}%
+                      <span className="w-12 text-right text-sm tabular-nums text-zinc-400">
+                        {Math.round(
+                          splitsBackgroundOpacity * 100
+                        )}
+                        %
+                      </span>
+                    </div>
+                  </SettingRow>
 
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.05"
-                value={splitsBackgroundOpacity}
-                disabled={pending}
-                onChange={(e) =>
-                  setSplitsBackgroundOpacity(
-                    Number(e.target.value)
-                  )
-                }
-                onMouseUp={() =>
-                  startTransition(async () => {
-                    await saveSetting(
-                      {
-                        splits_background_opacity:
-                          splitsBackgroundOpacity,
-                      },
-                      "Split background opacity saved."
-                    );
-                  })
-                }
-              />
-            </label>
-          )}
+                  <div className="flex justify-end pt-4">
+                    <button
+                      type="button"
+                      disabled={pending}
+                      className="
+                        rounded-lg bg-zinc-100 px-4 py-2
+                        text-sm font-medium text-zinc-950
+                        transition-colors
+                        hover:bg-white
+                        focus:outline-none
+                        focus:ring-2
+                        focus:ring-zinc-500
+                        focus:ring-offset-2
+                        focus:ring-offset-zinc-950
+                        disabled:cursor-not-allowed
+                        disabled:opacity-50
+                      "
+                      onClick={() =>
+                        startTransition(async () => {
+                          await saveSetting(
+                            {
+                              splits_background_color_1:
+                                splitsBackgroundColor1,
+                              splits_background_color_2:
+                                splitsBackgroundColor2,
+                              splits_background_opacity:
+                                splitsBackgroundOpacity,
+                            },
+                            "Split background appearance saved."
+                          );
+                        })
+                      }
+                    >
+                      Save background
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="mt-6 grid gap-4">
