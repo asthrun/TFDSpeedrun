@@ -139,8 +139,41 @@ export async function updateShortcuts(formData: FormData) {
   const patch: Record<string, string | null> = {};
 
   for (const field of SHORTCUT_FIELDS) {
-    const value = String(formData.get(field) ?? "").trim();
-    patch[field] = value.length === 0 ? null : value;
+    const value = String(
+      formData.get(field) ?? ""
+    ).trim();
+
+    if (value.length === 0) {
+      patch[field] = null;
+      continue;
+    }
+
+    if (!isValidShortcut(value)) {
+      return {
+        error: "One or more keyboard shortcuts are invalid.",
+      };
+    }
+
+    patch[field] = value;
+  }
+
+  const SHORTCUT_PATTERN =
+    /^(?:(?:Ctrl|Alt|Shift)\+)*(?:Key[A-Z]|Digit[0-9]|Numpad[0-9]|F(?:[1-9]|1[0-2]))$/;
+
+  function isValidShortcut(value: string) {
+    if (!SHORTCUT_PATTERN.test(value)) {
+      return false;
+    }
+
+    const parts = value.split("+");
+    const modifiers = parts.slice(0, -1);
+
+    return (
+      new Set(modifiers).size === modifiers.length &&
+      modifiers.every((modifier) =>
+        ["Ctrl", "Alt", "Shift"].includes(modifier)
+      )
+    );
   }
 
   const assignedShortcuts = Object.values(
