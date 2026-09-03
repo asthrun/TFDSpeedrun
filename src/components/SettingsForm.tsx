@@ -686,7 +686,7 @@ const previewAppearance = {
             </p>
           </div>
 
-          <div className="mt-3 divide-y divide-zinc-800">
+          <div className="mt-3 grid gap-x-6 lg:grid-cols-2">
             <ColorSettingRow
               label="Primary text"
               value={primaryTextColor}
@@ -995,24 +995,12 @@ const previewAppearance = {
       </div>
 
       <div className="min-w-0 xl:sticky xl:top-6">
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-4">
-          <div className="mb-4">
-            <h3 className="font-semibold text-zinc-100">
-              Appearance Preview
-            </h3>
-
-            <p className="mt-1 text-sm text-zinc-400">
-              Preview your timer appearance while changing settings.
-            </p>
-          </div>
-
-          <AppearancePreview
-            appearance={previewAppearance}
-            showGameProfile={showGameProfile}
-            showCategory={showCategory}
-            showCompareTo={showCompareTo}
-          />
-        </div>
+        <AppearancePreview
+          appearance={previewAppearance}
+          showGameProfile={showGameProfile}
+          showCategory={showCategory}
+          showCompareTo={showCompareTo}
+        />
       </div>
 
     </div>
