@@ -8,7 +8,9 @@ use tauri::{
     tray::TrayIconBuilder,
 };
 
-use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Shortcut, ShortcutState};
+use tauri_plugin_global_shortcut::{
+    Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState,
+};
 use tauri_plugin_opener::OpenerExt;
 
 use futures_util::{SinkExt, StreamExt};
@@ -146,6 +148,55 @@ fn browser_code_to_tauri_code(code: &str) -> Option<Code> {
     }
 }
 
+fn browser_shortcut_to_tauri_shortcut(
+    value: &str,
+) -> Result<Shortcut, String> {
+    let parts: Vec<&str> = value.split('+').collect();
+
+    let Some((code_value, modifier_values)) =
+        parts.split_last()
+    else {
+        return Err("Shortcut cannot be empty".to_string());
+    };
+
+    let code = browser_code_to_tauri_code(code_value)
+        .ok_or_else(|| {
+            format!("Unsupported shortcut code: {code_value}")
+        })?;
+
+    let mut modifiers = Modifiers::empty();
+
+    for modifier in modifier_values {
+        let flag = match *modifier {
+            "Ctrl" => Modifiers::CONTROL,
+            "Alt" => Modifiers::ALT,
+            "Shift" => Modifiers::SHIFT,
+
+            unsupported => {
+                return Err(format!(
+                    "Unsupported shortcut modifier: {unsupported}"
+                ));
+            }
+        };
+
+        if modifiers.contains(flag) {
+            return Err(format!(
+                "Duplicate shortcut modifier: {modifier}"
+            ));
+        }
+
+        modifiers |= flag;
+    }
+
+    let modifiers = if modifiers.is_empty() {
+        None
+    } else {
+        Some(modifiers)
+    };
+
+    Ok(Shortcut::new(modifiers, code))
+}
+
 fn build_configured_shortcuts(
     configuration: &ShortcutConfiguration,
 ) -> Result<Vec<ConfiguredShortcut>, String> {
@@ -179,12 +230,8 @@ fn build_configured_shortcuts(
             continue;
         };
 
-        let code = browser_code_to_tauri_code(browser_code)
-            .ok_or_else(|| {
-                format!("Unsupported shortcut code: {browser_code}")
-            })?;
-
-        let shortcut = Shortcut::new(None, code);
+        let shortcut =
+            browser_shortcut_to_tauri_shortcut(browser_code)?;
 
         if configured
             .iter()

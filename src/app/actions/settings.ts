@@ -139,23 +139,23 @@ export async function updateShortcuts(formData: FormData) {
   const patch: Record<string, string | null> = {};
 
   for (const field of SHORTCUT_FIELDS) {
-    const value = String(
-      formData.get(field) ?? ""
-    ).trim();
+  const value = String(
+    formData.get(field) ?? ""
+  ).trim();
 
-    if (value.length === 0) {
-      patch[field] = null;
-      continue;
-    }
-
-    if (!isValidShortcut(value)) {
-      return {
-        error: "One or more keyboard shortcuts are invalid.",
-      };
-    }
-
-    patch[field] = value;
+  if (value.length === 0) {
+    patch[field] = null;
+    continue;
   }
+
+  if (!isValidShortcut(value)) {
+    return {
+      error: "One or more keyboard shortcuts are invalid.",
+    };
+  }
+
+  patch[field] = value;
+}
 
   const SHORTCUT_PATTERN =
     /^(?:(?:Ctrl|Alt|Shift)\+)*(?:Key[A-Z]|Digit[0-9]|Numpad[0-9]|F(?:[1-9]|1[0-2]))$/;
@@ -215,6 +215,7 @@ export async function updateShortcuts(formData: FormData) {
   }
 
   revalidatePath("/settings");
+  revalidatePath("/", "layout");
 
   return {
     error: null as string | null,
