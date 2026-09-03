@@ -7,6 +7,9 @@ import { ShortcutInput } from "@/components/ShortcutInput";
 import { FONT_OPTIONS } from "@/lib/fonts";
 import type { UserSettings } from "@/lib/database.types";
 import { AppearancePreview } from "@/components/AppearancePreview";
+import { SettingSection } from "@/components/settings/SettingSection";
+import { SettingRow } from "@/components/settings/SettingRow";
+import { ToggleSwitch } from "@/components/settings/ToggleSwitch";
 
 export function SettingsForm({ settings }: { settings: UserSettings }) {
   
@@ -114,6 +117,10 @@ export function SettingsForm({ settings }: { settings: UserSettings }) {
       settings.privacy_mode
     );
 
+    const [saveIncompleteRuns, setSaveIncompleteRuns] = useState(
+      settings.save_incomplete_runs
+    );
+
 const previewAppearance = {
   ...settings,
 
@@ -178,24 +185,19 @@ const previewAppearance = {
 
   return (
     <div className="grid gap-8">
-      <section>
-        <h2 className="text-lg font-medium">
-          Privacy
-        </h2>
-
-        <p className="mt-1 text-sm text-zinc-400">
-          Protect identifying account information when sharing
-          TFDSpeedrun on stream, screenshots, or recordings.
-        </p>
-
-        <label className="mt-3 flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
+      <SettingSection
+        title="Privacy"
+        description="Protect identifying account information when sharing TFDSpeedrun on stream, screenshots, or recordings."
+      >
+        <SettingRow
+          label="Streamer / Privacy Mode"
+          description="Hide or mask identifying account information in the interface. This does not change your stored account data."
+        >
+          <ToggleSwitch
+            label="Streamer / Privacy Mode"
             checked={privacyMode}
             disabled={pending}
-            onChange={(e) => {
-              const checked = e.target.checked;
-
+            onChange={(checked) => {
               setPrivacyMode(checked);
 
               startTransition(async () => {
@@ -212,152 +214,143 @@ const previewAppearance = {
               });
             }}
           />
+        </SettingRow>
+      </SettingSection>
+        <SettingSection
+    title="Timer"
+    description="Choose what information is shown in the timer and how runs are stored."
+  >
+    <SettingRow label="Show Game Profile">
+      <ToggleSwitch
+        label="Show Game Profile"
+        checked={showGameProfile}
+        disabled={pending}
+        onChange={(checked) => {
+          setShowGameProfile(checked);
 
-          Streamer / Privacy Mode
-        </label>
+          startTransition(async () => {
+            const saved = await saveSetting(
+              { show_game_profile: checked },
+              "Game Profile visibility saved."
+            );
 
-        <p className="mt-2 text-xs text-zinc-500">
-          When enabled, identifying account information is hidden
-          or masked in the interface. This does not change your
-          stored account data.
-        </p>
-      </section>
-      <section>
-          <h2 className="text-lg font-medium">
-            Timer Layout
-          </h2>
+            if (!saved) {
+              setShowGameProfile(!checked);
+            }
+          });
+        }}
+      />
+    </SettingRow>
 
-          <p className="mt-1 text-sm text-zinc-400">
-            Choose how much information is visible in the timer.
-          </p>
+    <SettingRow label="Show Category">
+      <ToggleSwitch
+        label="Show Category"
+        checked={showCategory}
+        disabled={pending}
+        onChange={(checked) => {
+          setShowCategory(checked);
 
-          <div className="mt-3 grid gap-3">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={showGameProfile}
-                disabled={pending}
-                onChange={(e) => {
-                  const checked = e.target.checked;
+          startTransition(async () => {
+            const saved = await saveSetting(
+              { show_category: checked },
+              "Category visibility saved."
+            );
 
-                  setShowGameProfile(checked);
+            if (!saved) {
+              setShowCategory(!checked);
+            }
+          });
+        }}
+      />
+    </SettingRow>
 
-                  startTransition(async () => {
-                    const saved = await saveSetting(
-                      { show_game_profile: checked },
-                      "Game Profile visibility saved.",
-                    );
+    <SettingRow label="Show Comparison">
+      <ToggleSwitch
+        label="Show Comparison"
+        checked={showCompareTo}
+        disabled={pending}
+        onChange={(checked) => {
+          setShowCompareTo(checked);
 
-                    if (!saved) {
-                      setShowGameProfile(!checked);
-                    }
-                  });
-                }}
-              />
+          startTransition(async () => {
+            const saved = await saveSetting(
+              { show_compare_to: checked },
+              "Comparison visibility saved."
+            );
 
-              Show Game Profile
-            </label>
+            if (!saved) {
+              setShowCompareTo(!checked);
+            }
+          });
+        }}
+      />
+    </SettingRow>
 
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={showCategory}
+    <SettingRow
+      label="Visible splits"
+      description="All shows every section. A number keeps the current section inside a scrolling window."
+    >
+      <select
+        defaultValue={
+          settings.visible_split_count === null
+            ? "all"
+            : String(settings.visible_split_count)
+        }
+        disabled={pending}
+        className="min-w-28 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"
+        onChange={(event) => {
+          const value =
+            event.target.value === "all"
+              ? null
+              : Number(event.target.value);
 
-                onChange={(e) => {
-                  const checked = e.target.checked;
+          startTransition(async () => {
+            await saveSetting(
+              { visible_split_count: value },
+              "Visible splits saved."
+            );
+          });
+        }}
+      >
+        <option value="all">All</option>
+        <option value="1">1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+        <option value="5">5</option>
+        <option value="6">6</option>
+        <option value="7">7</option>
+        <option value="8">8</option>
+        <option value="9">9</option>
+        <option value="10">10</option>
+      </select>
+    </SettingRow>
 
-                  setShowCategory(checked);
+    <SettingRow
+      label="Save incomplete runs"
+      description="Keep incomplete or invalid attempts in History. They never count toward comparisons or statistics."
+    >
+      <ToggleSwitch
+        label="Save incomplete runs"
+        checked={saveIncompleteRuns}
+        disabled={pending}
+        onChange={(checked) => {
+          setSaveIncompleteRuns(checked);
 
-                  startTransition(async () => {
-                    const saved = await saveSetting(
-                      { show_category: checked },
-                      "Category visibility saved.",
-                    );
+          startTransition(async () => {
+            const saved = await saveSetting(
+              { save_incomplete_runs: checked },
+              "Incomplete run preference saved."
+            );
 
-                    if (!saved) {
-                      setShowCategory(!checked);
-                    }
-                  });
-                }}
-              />
-
-              Show Category
-            </label>
-
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={showCompareTo}
-
-                onChange={(e) => {
-                  const checked = e.target.checked;
-
-                  setShowCompareTo(checked);
-
-                  startTransition(async () => {
-                    const saved = await saveSetting(
-                      { show_compare_to: checked },
-                      "Compare To visibility saved.",
-                    );
-
-                    if (!saved) {
-                      setShowCompareTo(!checked);
-                    }
-                  });
-                }}
-              />
-
-              Show Compare To
-            </label>
-            <label className="grid gap-1 text-sm">
-              Visible splits
-
-              <select
-                defaultValue={
-                  settings.visible_split_count === null
-                    ? "all"
-                    : String(
-                        settings.visible_split_count,
-                      )
-                }
-                disabled={pending}
-                className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"
-                onChange={(e) => {
-                  const value =
-                    e.target.value === "all"
-                      ? null
-                      : Number(e.target.value);
-
-                  startTransition(async () => {
-                    await saveSetting(
-                      {
-                        visible_split_count: value,
-                      },
-                      "Visible splits saved.",
-                    );
-                  });
-                }}
-              >
-                <option value="all">All</option>
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
-                <option value="5">5</option>
-                <option value="6">6</option>
-                <option value="7">7</option>
-                <option value="8">8</option>
-                <option value="9">9</option>
-                <option value="10">10</option>
-              </select>
-
-              <span className="text-xs text-zinc-500">
-                All shows every section. A number keeps the
-                current section inside a scrolling window.
-              </span>
-            </label>
-          </div>
-        </section>
+            if (!saved) {
+              setSaveIncompleteRuns(!checked);
+            }
+          });
+        }}
+      />
+    </SettingRow>
+  </SettingSection>
       <section>
         <h2 className="text-lg font-medium">Appearance / OBS</h2>
         
@@ -1012,40 +1005,6 @@ const previewAppearance = {
             </span>
           </label>
 
-          <label className="flex items-start gap-2 text-sm">
-            <input
-              type="checkbox"
-              defaultChecked={
-                settings.save_incomplete_runs
-              }
-              disabled={pending}
-              onChange={(e) => {
-                const checked = e.target.checked;
-
-                startTransition(async () => {
-                  await saveSetting(
-                    {
-                      save_incomplete_runs:
-                        checked,
-                    },
-                    "Incomplete run preference saved.",
-                  );
-                });
-              }}
-            />
-
-            <span>
-              <span className="block">
-                Save incomplete runs
-              </span>
-
-              <span className="block text-xs text-zinc-500">
-                Keep incomplete or invalid attempts
-                in History. They never count toward
-                comparisons or statistics.
-              </span>
-            </span>
-          </label>
         </div>
 
       </section>
