@@ -49,6 +49,25 @@ impl InputIntent {
     }
 }
 
+#[derive(Debug, serde::Deserialize)]
+#[serde(tag = "type", deny_unknown_fields)]
+enum BrowserMessage {
+    #[serde(rename = "configure_shortcuts")]
+    ConfigureShortcuts {
+        shortcuts: ShortcutConfiguration,
+    },
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ShortcutConfiguration {
+    start_split_finish: Option<String>,
+    pause_resume: Option<String>,
+    undo_split: Option<String>,
+    skip_split: Option<String>,
+    reset: Option<String>,
+}
+
 fn shortcuts() -> [(Shortcut, InputIntent); 5] {
     [
         (
@@ -316,9 +335,62 @@ async fn run_local_bridge(
                                 break;
                             }
 
+                            Some(Ok(message)) if message.is_text() => {
+                            let text = match message.to_text() {
+                                Ok(text) => text,
+
+                                Err(error) => {
+                                    eprintln!(
+                                        "Invalid browser message from {address}: {error}"
+                                    );
+                                    continue;
+                                }
+                            };
+
+                            match serde_json::from_str::<BrowserMessage>(text) {
+                                Ok(BrowserMessage::ConfigureShortcuts {
+                                    shortcuts,
+                                }) => {
+                                    println!(
+                                        "Shortcut configuration received from {address}:"
+                                    );
+
+                                    println!(
+                                        "  start_split_finish: {:?}",
+                                        shortcuts.start_split_finish
+                                    );
+
+                                    println!(
+                                        "  pause_resume: {:?}",
+                                        shortcuts.pause_resume
+                                    );
+
+                                    println!(
+                                        "  undo_split: {:?}",
+                                        shortcuts.undo_split
+                                    );
+
+                                    println!(
+                                        "  skip_split: {:?}",
+                                        shortcuts.skip_split
+                                    );
+
+                                    println!(
+                                        "  reset: {:?}",
+                                        shortcuts.reset
+                                    );
+                                }
+
+                                Err(error) => {
+                                    eprintln!(
+                                        "Ignored invalid browser message from {address}: {error}"
+                                    );
+                                }
+                            }
+                        }
+
                             Some(Ok(_)) => {
-                                // Incoming browser messages have no authority
-                                // after the pairing handshake.
+                                // Andere berichttypen hebben geen autoriteit.
                             }
 
                             Some(Err(error)) => {

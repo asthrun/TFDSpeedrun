@@ -25,7 +25,15 @@ export default async function AppGroupLayout({
 
   return (
   <div className="flex min-h-full flex-col">
-    <CompanionPairingClient />
+    <CompanionPairingClient
+      shortcuts={{
+        startSplitFinish: settings.shortcut_start_split,
+        pauseResume: settings.shortcut_pause,
+        undoSplit: settings.shortcut_undo,
+        skipSplit: settings.shortcut_skip,
+        reset: settings.shortcut_reset,
+      }}
+    />
 
     <AppNav
       username={username}

@@ -4,7 +4,21 @@ import { useEffect } from "react";
 
 const COMPANION_BRIDGE_URL = "ws://127.0.0.1:38471";
 
-export default function CompanionPairingClient() {
+type CompanionShortcuts = {
+  startSplitFinish: string | null;
+  pauseResume: string | null;
+  undoSplit: string | null;
+  skipSplit: string | null;
+  reset: string | null;
+};
+
+type Props = {
+  shortcuts: CompanionShortcuts;
+};
+
+export default function CompanionPairingClient({
+    shortcuts,
+  }: Props) {
   useEffect(() => {
     const hash = window.location.hash;
 
@@ -37,6 +51,20 @@ export default function CompanionPairingClient() {
     websocket.onmessage = (event) => {
       if (event.data === "pairing_ok") {
         console.log("TFDSpeedrun Companion connected.");
+
+        websocket.send(
+          JSON.stringify({
+            type: "configure_shortcuts",
+            shortcuts: {
+              start_split_finish: shortcuts.startSplitFinish,
+              pause_resume: shortcuts.pauseResume,
+              undo_split: shortcuts.undoSplit,
+              skip_split: shortcuts.skipSplit,
+              reset: shortcuts.reset,
+            },
+          })
+        );
+
         return;
       }
 
