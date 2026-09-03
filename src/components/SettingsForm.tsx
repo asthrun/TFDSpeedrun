@@ -351,10 +351,13 @@ const previewAppearance = {
       />
     </SettingRow>
   </SettingSection>
-      <section>
-        <h2 className="text-lg font-medium">Appearance / OBS</h2>
-        
-        <div className="mt-4 grid gap-6">
+       <section>
+          <h2 className="text-lg font-medium">Appearance / OBS</h2>
+
+          <div className="mt-4 grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.8fr)]">
+            <div className="min-w-0">
+
+              <div className="grid gap-6">
           <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-4">
             <h3 className="font-semibold text-zinc-100">
               Timer Background
@@ -878,7 +881,7 @@ const previewAppearance = {
               Adjust the font and text presentation used by the timer.
             </p>
           </div>
-
+          
           <div className="mt-3 divide-y divide-zinc-800">
             <SettingRow label="Font">
               <select
@@ -985,10 +988,24 @@ const previewAppearance = {
                   });
                 }}
               />
-            </SettingRow>
+             </SettingRow>
           </div>
         </div>
-        <div className="mt-8">
+
+      </div>
+
+      <div className="min-w-0 xl:sticky xl:top-6">
+        <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-4">
+          <div className="mb-4">
+            <h3 className="font-semibold text-zinc-100">
+              Appearance Preview
+            </h3>
+
+            <p className="mt-1 text-sm text-zinc-400">
+              Preview your timer appearance while changing settings.
+            </p>
+          </div>
+
           <AppearancePreview
             appearance={previewAppearance}
             showGameProfile={showGameProfile}
@@ -996,12 +1013,15 @@ const previewAppearance = {
             showCompareTo={showCompareTo}
           />
         </div>
-      </section>
+      </div>
 
-      <section>
-        <h2 className="text-lg font-medium">
-          Controls
-        </h2>
+    </div>
+  </section>
+
+  <section>
+    <h2 className="text-lg font-medium">
+      Controls
+    </h2>
         <p className="text-sm text-zinc-400">Empty by default. Click a field, then press a key. Clear is allowed.</p>
         <form
           action={async (formData) => {
