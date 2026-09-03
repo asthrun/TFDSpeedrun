@@ -672,9 +672,9 @@ const previewAppearance = {
           </div>
         </div>
 
-        <div className="mt-6 grid gap-4">
+        <div className="mt-6 rounded-xl border border-zinc-800 bg-zinc-950/40 p-4">
           <div>
-            <h3 className="text-lg font-semibold">
+            <h3 className="font-semibold text-zinc-100">
               Semantic Colors
             </h3>
 
@@ -683,131 +683,126 @@ const previewAppearance = {
             </p>
           </div>
 
-          <ColorSetting
-            label="Primary text"
-            value={primaryTextColor}
-            onChange={setPrimaryTextColor}
-            disabled={pending}
-            onSave={() =>
-              saveSetting(
-                { primary_text_color: primaryTextColor },
-                "Primary text color saved."
-              )
-            }
-          />
+          <div className="mt-3 divide-y divide-zinc-800">
+            <ColorSettingRow
+              label="Primary text"
+              value={primaryTextColor}
+              onChange={setPrimaryTextColor}
+              disabled={pending}
+            />
 
-          <ColorSetting
-            label="Secondary text"
-            value={secondaryTextColor}
-            onChange={setSecondaryTextColor}
-            disabled={pending}
-            onSave={() =>
-              saveSetting(
-                { secondary_text_color: secondaryTextColor },
-                "Secondary text color saved."
-              )
-            }
-          />
+            <ColorSettingRow
+              label="Secondary text"
+              value={secondaryTextColor}
+              onChange={setSecondaryTextColor}
+              disabled={pending}
+            />
 
-          <ColorSetting
-            label="Ahead + Gaining"
-            value={aheadGainingColor}
-            onChange={setAheadGainingColor}
-            disabled={pending}
-            onSave={() =>
-              saveSetting(
-                { ahead_gaining_color: aheadGainingColor },
-                "Ahead + Gaining color saved."
-              )
-            }
-          />
+            <ColorSettingRow
+              label="Ahead + Gaining"
+              value={aheadGainingColor}
+              onChange={setAheadGainingColor}
+              disabled={pending}
+            />
 
-          <ColorSetting
-            label="Ahead + Losing"
-            value={aheadLosingColor}
-            onChange={setAheadLosingColor}
-            disabled={pending}
-            onSave={() =>
-              saveSetting(
-                { ahead_losing_color: aheadLosingColor },
-                "Ahead + Losing color saved."
-              )
-            }
-          />
+            <ColorSettingRow
+              label="Ahead + Losing"
+              value={aheadLosingColor}
+              onChange={setAheadLosingColor}
+              disabled={pending}
+            />
 
-          <ColorSetting
-            label="Behind + Gaining"
-            value={behindGainingColor}
-            onChange={setBehindGainingColor}
-            disabled={pending}
-            onSave={() =>
-              saveSetting(
-                { behind_gaining_color: behindGainingColor },
-                "Behind + Gaining color saved."
-              )
-            }
-          />
+            <ColorSettingRow
+              label="Behind + Gaining"
+              value={behindGainingColor}
+              onChange={setBehindGainingColor}
+              disabled={pending}
+            />
 
-          <ColorSetting
-            label="Behind + Losing"
-            value={behindLosingColor}
-            onChange={setBehindLosingColor}
-            disabled={pending}
-            onSave={() =>
-              saveSetting(
-                { behind_losing_color: behindLosingColor },
-                "Behind + Losing color saved."
-              )
-            }
-          />
+            <ColorSettingRow
+              label="Behind + Losing"
+              value={behindLosingColor}
+              onChange={setBehindLosingColor}
+              disabled={pending}
+            />
 
-          <ColorSetting
-            label="Best Segment"
-            value={bestSegmentColor}
-            onChange={setBestSegmentColor}
-            disabled={pending}
-            onSave={() =>
-              saveSetting(
-                { best_segment_color: bestSegmentColor },
-                "Best Segment color saved."
-              )
-            }
-          />
+            <ColorSettingRow
+              label="Best Segment"
+              value={bestSegmentColor}
+              onChange={setBestSegmentColor}
+              disabled={pending}
+            />
 
-          <ColorSetting
-            label="Paused"
-            value={pausedColor}
-            onChange={setPausedColor}
-            disabled={pending}
-            onSave={() =>
-              saveSetting(
-                { paused_color: pausedColor },
-                "Paused color saved."
-              )
-            }
-          />
-        </div>
-
-        <div className="mt-6 grid gap-4">
-          <div>
-            <h3 className="text-lg font-semibold">
-              OBS Chroma Key
-            </h3>
-
-            <p className="mt-1 text-sm text-zinc-400">
-              Optional compatibility mode for OBS. Chroma Key only
-              affects the OBS overlay, not the normal timer page.
-            </p>
+            <ColorSettingRow
+              label="Paused"
+              value={pausedColor}
+              onChange={setPausedColor}
+              disabled={pending}
+            />
           </div>
 
-          <label className="flex items-start gap-2 text-sm">
-            <input
-              type="checkbox"
+          <div className="flex justify-end border-t border-zinc-800 pt-4">
+            <button
+              type="button"
+              disabled={pending}
+              className="
+                rounded-lg bg-zinc-100 px-4 py-2
+                text-sm font-medium text-zinc-950
+                transition-colors
+                hover:bg-white
+                focus:outline-none
+                focus:ring-2
+                focus:ring-zinc-500
+                focus:ring-offset-2
+                focus:ring-offset-zinc-950
+                disabled:cursor-not-allowed
+                disabled:opacity-50
+              "
+              onClick={() =>
+                startTransition(async () => {
+                  await saveSetting(
+                    {
+                      primary_text_color: primaryTextColor,
+                      secondary_text_color: secondaryTextColor,
+                      ahead_gaining_color: aheadGainingColor,
+                      ahead_losing_color: aheadLosingColor,
+                      behind_gaining_color: behindGainingColor,
+                      behind_losing_color: behindLosingColor,
+                      best_segment_color: bestSegmentColor,
+                      paused_color: pausedColor,
+                    },
+                    "Semantic colors saved."
+                  );
+                })
+              }
+            >
+              Save colors
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-6 rounded-xl border border-zinc-800 bg-zinc-950/40 p-4">
+        <div>
+          <h3 className="font-semibold text-zinc-100">
+            OBS Chroma Key
+          </h3>
+
+          <p className="mt-1 text-sm text-zinc-400">
+            Optional compatibility mode for OBS. Chroma Key only
+            affects the OBS overlay, not the normal timer page.
+          </p>
+        </div>
+
+        <div className="mt-3 divide-y divide-zinc-800">
+          <SettingRow
+            label="Enable Chroma Key"
+            description="Replaces the OBS overlay background with a solid key color."
+          >
+            <ToggleSwitch
+              label="Enable Chroma Key"
               checked={chromaKeyEnabled}
               disabled={pending}
-              onChange={(e) => {
-                const checked = e.target.checked;
-
+              onChange={(checked) => {
                 setChromaKeyEnabled(checked);
 
                 startTransition(async () => {
@@ -826,91 +821,172 @@ const previewAppearance = {
                 });
               }}
             />
-
-            <span>
-              <span className="block">
-                Enable Chroma Key
-              </span>
-
-              <span className="block text-xs text-zinc-500">
-                Replaces the OBS overlay background with a solid
-                key color.
-              </span>
-            </span>
-          </label>
+          </SettingRow>
 
           {chromaKeyEnabled && (
-            <ColorSetting
-              label="Chroma Key color"
-              value={chromaKeyColor}
-              onChange={setChromaKeyColor}
-              disabled={pending}
-              onSave={() =>
-                saveSetting(
-                  {
-                    chroma_key_color: chromaKeyColor,
-                  },
-                  "OBS Chroma Key color saved."
-                )
-              }
-            />
+            <>
+              <ColorSettingRow
+                label="Chroma Key color"
+                value={chromaKeyColor}
+                onChange={setChromaKeyColor}
+                disabled={pending}
+              />
+
+              <div className="flex justify-end pt-4">
+                <button
+                  type="button"
+                  disabled={pending}
+                  className="
+                    rounded-lg bg-zinc-100 px-4 py-2
+                    text-sm font-medium text-zinc-950
+                    transition-colors
+                    hover:bg-white
+                    focus:outline-none
+                    focus:ring-2
+                    focus:ring-zinc-500
+                    focus:ring-offset-2
+                    focus:ring-offset-zinc-950
+                    disabled:cursor-not-allowed
+                    disabled:opacity-50
+                  "
+                  onClick={() =>
+                    startTransition(async () => {
+                      await saveSetting(
+                        {
+                          chroma_key_color: chromaKeyColor,
+                        },
+                        "OBS Chroma Key color saved."
+                      );
+                    })
+                  }
+                >
+                  Save color
+                </button>
+              </div>
+            </>
           )}
         </div>
+      </div>
 
-        <div className="mt-3 grid gap-3">       
-          <label className="grid gap-1 text-sm">
-            Font
-            <select
-              value={fontFamily}
-              className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"
-              onChange={(e) => {
-                const value = e.target.value;
-                const previous = fontFamily;
+        <div className="mt-6 rounded-xl border border-zinc-800 bg-zinc-950/40 p-4">
+          <div>
+            <h3 className="font-semibold text-zinc-100">
+              Typography
+            </h3>
 
-                setFontFamily(value);
+            <p className="mt-1 text-sm text-zinc-400">
+              Adjust the font and text presentation used by the timer.
+            </p>
+          </div>
 
-                startTransition(async () => {
-                  const saved = await saveSetting(
-                    { font_family: value },
-                    "Font saved."
-                  );
+          <div className="mt-3 divide-y divide-zinc-800">
+            <SettingRow label="Font">
+              <select
+                value={fontFamily}
+                disabled={pending}
+                className="
+                  min-w-40 rounded-lg border border-zinc-700
+                  bg-zinc-900 px-3 py-2 text-sm
+                  transition-colors
+                  hover:border-zinc-500
+                  focus:border-zinc-400
+                  focus:outline-none
+                  focus:ring-2
+                  focus:ring-zinc-700
+                  disabled:cursor-not-allowed
+                  disabled:opacity-50
+                "
+                onChange={(e) => {
+                  const value = e.target.value;
+                  const previous = fontFamily;
 
-                  if (!saved) {
-                    setFontFamily(previous);
-                  }
-                });
-              }}
+                  setFontFamily(value);
+
+                  startTransition(async () => {
+                    const saved = await saveSetting(
+                      { font_family: value },
+                      "Font saved."
+                    );
+
+                    if (!saved) {
+                      setFontFamily(previous);
+                    }
+                  });
+                }}
+              >
+                {FONT_OPTIONS.map((font) => (
+                  <option key={font.id} value={font.id}>
+                    {font.label}
+                  </option>
+                ))}
+              </select>
+            </SettingRow>
+
+            <SettingRow
+              label="Font size"
+              description="Scale the timer text without changing the timer layout."
             >
-              {FONT_OPTIONS.map((font) => (
-                <option key={font.id} value={font.id}>
-                  {font.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="grid gap-1 text-sm">
-            Font size scale ({fontScale})
-            <input
-              type="range"
-              min="0.75"
-              max="2"
-              step="0.05"
-              value={fontScale}
-              onChange={(e) => {
-                setFontScale(Number(e.target.value));
-              }}
-              onMouseUp={() => {
-                const value = fontScale;
+              <div className="flex min-w-64 items-center gap-3">
+                <input
+                  type="range"
+                  min="0.75"
+                  max="2"
+                  step="0.05"
+                  value={fontScale}
+                  disabled={pending}
+                  onChange={(e) => {
+                    setFontScale(Number(e.target.value));
+                  }}
+                  onMouseUp={() => {
+                    const value = fontScale;
 
-                startTransition(async () => {
-                  await saveSetting(
-                    { font_scale: value },
-                    "Font size saved."
-                  );
-                });
-              }}
-            />
-          </label>
+                    startTransition(async () => {
+                      await saveSetting(
+                        { font_scale: value },
+                        "Font size saved."
+                      );
+                    });
+                  }}
+                  className="
+                    w-full cursor-pointer
+                    disabled:cursor-not-allowed
+                    disabled:opacity-50
+                  "
+                />
+
+                <span className="w-14 text-right text-sm tabular-nums text-zinc-400">
+                  {Math.round(fontScale * 100)}%
+                </span>
+              </div>
+            </SettingRow>
+
+            <SettingRow
+              label="Text shadow"
+              description="Add contrast around timer text to improve readability."
+            >
+              <ToggleSwitch
+                label="Text shadow"
+                checked={textShadow}
+                disabled={pending}
+                onChange={(checked) => {
+                  setTextShadow(checked);
+
+                  startTransition(async () => {
+                    const saved = await saveSetting(
+                      { text_shadow: checked },
+                      checked
+                        ? "Text shadow enabled."
+                        : "Text shadow disabled."
+                    );
+
+                    if (!saved) {
+                      setTextShadow(!checked);
+                    }
+                  });
+                }}
+              />
+            </SettingRow>
+          </div>
         </div>
         <div className="mt-8">
           <AppearancePreview
@@ -1106,55 +1182,5 @@ const previewAppearance = {
     </div>
 
     
-  );
-}
-
-function ColorSetting({
-  label,
-  value,
-  onChange,
-  onSave,
-  disabled,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  onSave: () => Promise<boolean>;
-  disabled: boolean;
-}) {
-  const [pending, startTransition] = useTransition();
-
-  return (
-    <div className="grid gap-2">
-      <label className="grid gap-1 text-sm">
-        {label}
-
-        <div className="flex items-center gap-3">
-          <input
-            type="color"
-            value={value}
-            disabled={disabled || pending}
-            onChange={(e) => onChange(e.target.value)}
-          />
-
-          <span className="font-mono text-sm text-zinc-400">
-            {value}
-          </span>
-        </div>
-      </label>
-
-      <button
-        type="button"
-        disabled={disabled || pending}
-        className="w-fit rounded-lg bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-950 disabled:opacity-50"
-        onClick={() => {
-          startTransition(async () => {
-            await onSave();
-          });
-        }}
-      >
-        Save color
-      </button>
-    </div>
   );
 }
