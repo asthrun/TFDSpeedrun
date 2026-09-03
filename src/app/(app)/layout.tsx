@@ -2,6 +2,8 @@ import { AppNav } from "@/components/AppNav";
 import { getSettings, requireUser } from "@/lib/auth";
 import CompanionPairingClient from "@/components/CompanionPairingClient";
 import { CompanionStatusProvider } from "@/components/CompanionStatusProvider";
+import { AppNotificationProvider } from "@/components/AppNotificationProvider";
+import { AppNotificationBanner } from "@/components/AppNotificationBanner";
 
 export default async function AppGroupLayout({
   children,
@@ -26,24 +28,28 @@ export default async function AppGroupLayout({
 
   return (
     <CompanionStatusProvider>
-      <div className="flex min-h-full flex-col">
-        <CompanionPairingClient
-          shortcuts={{
-            startSplitFinish: settings.shortcut_start_split,
-            pauseResume: settings.shortcut_pause,
-            undoSplit: settings.shortcut_undo,
-            skipSplit: settings.shortcut_skip,
-            reset: settings.shortcut_reset,
-          }}
-        />
+      <AppNotificationProvider>
+        <div className="flex min-h-full flex-col">
+          <CompanionPairingClient
+            shortcuts={{
+              startSplitFinish: settings.shortcut_start_split,
+              pauseResume: settings.shortcut_pause,
+              undoSplit: settings.shortcut_undo,
+              skipSplit: settings.shortcut_skip,
+              reset: settings.shortcut_reset,
+            }}
+          />
 
-        <AppNav
-          username={username}
-          privacyMode={settings.privacy_mode}
-        />
+          <AppNav
+            username={username}
+            privacyMode={settings.privacy_mode}
+          />
 
-        <div className="flex-1">{children}</div>
-      </div>
+          <AppNotificationBanner />
+
+          <div className="flex-1">{children}</div>
+        </div>
+      </AppNotificationProvider>
     </CompanionStatusProvider>
   );
 }

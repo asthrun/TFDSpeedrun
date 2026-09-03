@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useCompanionStatus } from "@/components/CompanionStatusProvider";
+import { useAppNotification } from "@/components/AppNotificationProvider";
 
 const COMPANION_BRIDGE_URL = "ws://127.0.0.1:38471";
 
@@ -39,6 +40,7 @@ export default function CompanionPairingClient({
   shortcuts,
 }: Props) {
   const { setStatus } = useCompanionStatus();
+  const { showNotification } = useAppNotification();
 
   const websocketRef = useRef<WebSocket | null>(null);
   const pairedRef = useRef(false);
@@ -104,6 +106,13 @@ export default function CompanionPairingClient({
       if (event.data === "pairing_ok") {
         pairedRef.current = true;
         setStatus("connected");
+        showNotification({
+          type: "success",
+          title: "Companion paired successfully",
+          message:
+            "Global hotkeys can now be enabled from the Companion tray menu.",
+          autoDismissMs: 5000,
+        });
 
         console.log("TFDSpeedrun Companion connected.");
 
@@ -120,7 +129,15 @@ export default function CompanionPairingClient({
       }
 
       if (event.data === "pairing_rejected") {
-        console.error("TFDSpeedrun Companion pairing rejected.");
+        console.error("TFDSpeedrun Companion pairing was rejected.");
+
+        showNotification({
+          type: "error",
+          title: "Companion pairing failed",
+          message:
+            "The pairing request was rejected. Restart TFDSpeedrun Companion and try again. TFDSpeedrun will continue to work normally, but global hotkeys will remain unavailable until the Companion has been paired again.",
+        });
+
         websocket.close();
         return;
       }
@@ -176,7 +193,7 @@ export default function CompanionPairingClient({
 
       websocket.close();
     };
-  }, [setStatus]);
+  }, [setStatus, showNotification]);
 
   return null;
 }
