@@ -12,6 +12,13 @@ const SHORTCUT_FIELDS = [
   "shortcut_skip",
 ] as const;
 
+const SHORTCUT_PATTERN =
+  /^(?:Ctrl\+)?(?:Alt\+)?(?:Shift\+)?(?:Key[A-Z]|Digit[0-9]|Numpad[0-9]|F(?:[1-9]|1[0-2]))$/;
+
+function isValidShortcut(value: string) {
+  return SHORTCUT_PATTERN.test(value);
+}
+
 const SETTING_FIELDS = [
   "font_family",
   "font_scale",
@@ -139,46 +146,27 @@ export async function updateShortcuts(formData: FormData) {
   const patch: Record<string, string | null> = {};
 
   for (const field of SHORTCUT_FIELDS) {
-  const value = String(
-    formData.get(field) ?? ""
-  ).trim();
+    const value = String(
+      formData.get(field) ?? ""
+    ).trim();
 
-  if (value.length === 0) {
-    patch[field] = null;
-    continue;
-  }
-
-  if (!isValidShortcut(value)) {
-    return {
-      error: "One or more keyboard shortcuts are invalid.",
-    };
-  }
-
-  patch[field] = value;
-}
-
-  const SHORTCUT_PATTERN =
-    /^(?:(?:Ctrl|Alt|Shift)\+)*(?:Key[A-Z]|Digit[0-9]|Numpad[0-9]|F(?:[1-9]|1[0-2]))$/;
-
-  function isValidShortcut(value: string) {
-    if (!SHORTCUT_PATTERN.test(value)) {
-      return false;
+    if (value.length === 0) {
+      patch[field] = null;
+      continue;
     }
 
-    const parts = value.split("+");
-    const modifiers = parts.slice(0, -1);
+    if (!isValidShortcut(value)) {
+      return {
+        error: "One or more keyboard shortcuts are invalid.",
+      };
+    }
 
-    return (
-      new Set(modifiers).size === modifiers.length &&
-      modifiers.every((modifier) =>
-        ["Ctrl", "Alt", "Shift"].includes(modifier)
-      )
-    );
+    patch[field] = value;
   }
 
-  const assignedShortcuts = Object.values(
-    patch
-  ).filter(
+  console.log("Shortcut patch received:", patch);
+
+  const assignedShortcuts = Object.values(patch).filter(
     (value): value is string =>
       value !== null
   );
