@@ -8,7 +8,7 @@ use tauri::{
     tray::TrayIconBuilder,
 };
 
-use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
+use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Shortcut, ShortcutState};
 use tauri_plugin_opener::OpenerExt;
 
 use futures_util::{SinkExt, StreamExt};
@@ -68,39 +68,171 @@ struct ShortcutConfiguration {
     reset: Option<String>,
 }
 
-fn shortcuts() -> [(Shortcut, InputIntent); 5] {
-    [
+#[derive(Debug, Clone)]
+struct ConfiguredShortcut {
+    shortcut: Shortcut,
+    intent: InputIntent,
+}
+
+fn browser_code_to_tauri_code(code: &str) -> Option<Code> {
+    match code {
+        // Letters
+        "KeyA" => Some(Code::KeyA),
+        "KeyB" => Some(Code::KeyB),
+        "KeyC" => Some(Code::KeyC),
+        "KeyD" => Some(Code::KeyD),
+        "KeyE" => Some(Code::KeyE),
+        "KeyF" => Some(Code::KeyF),
+        "KeyG" => Some(Code::KeyG),
+        "KeyH" => Some(Code::KeyH),
+        "KeyI" => Some(Code::KeyI),
+        "KeyJ" => Some(Code::KeyJ),
+        "KeyK" => Some(Code::KeyK),
+        "KeyL" => Some(Code::KeyL),
+        "KeyM" => Some(Code::KeyM),
+        "KeyN" => Some(Code::KeyN),
+        "KeyO" => Some(Code::KeyO),
+        "KeyP" => Some(Code::KeyP),
+        "KeyQ" => Some(Code::KeyQ),
+        "KeyR" => Some(Code::KeyR),
+        "KeyS" => Some(Code::KeyS),
+        "KeyT" => Some(Code::KeyT),
+        "KeyU" => Some(Code::KeyU),
+        "KeyV" => Some(Code::KeyV),
+        "KeyW" => Some(Code::KeyW),
+        "KeyX" => Some(Code::KeyX),
+        "KeyY" => Some(Code::KeyY),
+        "KeyZ" => Some(Code::KeyZ),
+
+        // Number row
+        "Digit0" => Some(Code::Digit0),
+        "Digit1" => Some(Code::Digit1),
+        "Digit2" => Some(Code::Digit2),
+        "Digit3" => Some(Code::Digit3),
+        "Digit4" => Some(Code::Digit4),
+        "Digit5" => Some(Code::Digit5),
+        "Digit6" => Some(Code::Digit6),
+        "Digit7" => Some(Code::Digit7),
+        "Digit8" => Some(Code::Digit8),
+        "Digit9" => Some(Code::Digit9),
+
+        // Numpad
+        "Numpad0" => Some(Code::Numpad0),
+        "Numpad1" => Some(Code::Numpad1),
+        "Numpad2" => Some(Code::Numpad2),
+        "Numpad3" => Some(Code::Numpad3),
+        "Numpad4" => Some(Code::Numpad4),
+        "Numpad5" => Some(Code::Numpad5),
+        "Numpad6" => Some(Code::Numpad6),
+        "Numpad7" => Some(Code::Numpad7),
+        "Numpad8" => Some(Code::Numpad8),
+        "Numpad9" => Some(Code::Numpad9),
+
+        // Function keys
+        "F1" => Some(Code::F1),
+        "F2" => Some(Code::F2),
+        "F3" => Some(Code::F3),
+        "F4" => Some(Code::F4),
+        "F5" => Some(Code::F5),
+        "F6" => Some(Code::F6),
+        "F7" => Some(Code::F7),
+        "F8" => Some(Code::F8),
+        "F9" => Some(Code::F9),
+        "F10" => Some(Code::F10),
+        "F11" => Some(Code::F11),
+        "F12" => Some(Code::F12),
+
+        _ => None,
+    }
+}
+
+fn build_configured_shortcuts(
+    configuration: &ShortcutConfiguration,
+) -> Result<Vec<ConfiguredShortcut>, String> {
+    let values = [
         (
-            Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::F1),
+            configuration.start_split_finish.as_deref(),
             InputIntent::StartSplitFinish,
         ),
         (
-            Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::F2),
+            configuration.pause_resume.as_deref(),
             InputIntent::PauseResume,
         ),
         (
-            Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::F3),
+            configuration.undo_split.as_deref(),
             InputIntent::UndoSplit,
         ),
         (
-            Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::F4),
+            configuration.skip_split.as_deref(),
             InputIntent::SkipSplit,
         ),
         (
-            Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::F5),
+            configuration.reset.as_deref(),
             InputIntent::Reset,
         ),
-    ]
+    ];
+
+    let mut configured = Vec::new();
+
+    for (browser_code, intent) in values {
+        let Some(browser_code) = browser_code else {
+            continue;
+        };
+
+        let code = browser_code_to_tauri_code(browser_code)
+            .ok_or_else(|| {
+                format!("Unsupported shortcut code: {browser_code}")
+            })?;
+
+        let shortcut = Shortcut::new(None, code);
+
+        if configured
+            .iter()
+            .any(|existing: &ConfiguredShortcut| {
+                existing.shortcut == shortcut
+            })
+        {
+            return Err(format!(
+                "Duplicate shortcut code: {browser_code}"
+            ));
+        }
+
+        configured.push(ConfiguredShortcut {
+            shortcut,
+            intent,
+        });
+    }
+
+    Ok(configured)
 }
 
-fn disable_hotkeys(app: &tauri::AppHandle, hotkeys_enabled: &Arc<AtomicBool>) {
+fn disable_hotkeys(
+    app: &tauri::AppHandle,
+    hotkeys_enabled: &Arc<AtomicBool>,
+    configured_shortcuts: &Arc<Mutex<Vec<ConfiguredShortcut>>>,
+) {
     if !hotkeys_enabled.load(Ordering::SeqCst) {
         return;
     }
 
-    for (shortcut, _) in shortcuts() {
-        if let Err(error) = app.global_shortcut().unregister(shortcut) {
-            eprintln!("Failed to unregister hotkey during disconnect: {error}");
+    match configured_shortcuts.lock() {
+        Ok(configured) => {
+            for configured_shortcut in configured.iter() {
+                if let Err(error) = app
+                    .global_shortcut()
+                    .unregister(configured_shortcut.shortcut)
+                {
+                    eprintln!(
+                        "Failed to unregister hotkey during disable: {error}"
+                    );
+                }
+            }
+        }
+
+        Err(error) => {
+            eprintln!(
+                "Failed to access configured shortcuts during disable: {error}"
+            );
         }
     }
 
@@ -124,6 +256,7 @@ async fn run_local_bridge(
     active_intent_sender: Arc<
         Mutex<Option<tokio::sync::mpsc::UnboundedSender<InputIntent>>>,
     >,
+    configured_shortcuts: Arc<Mutex<Vec<ConfiguredShortcut>>>,
 ) {
     const BRIDGE_ADDRESS: &str = "127.0.0.1:38471";
 
@@ -157,6 +290,9 @@ async fn run_local_bridge(
 
         let active_intent_sender_for_connection =
             Arc::clone(&active_intent_sender);
+
+        let configured_shortcuts_for_connection =
+            Arc::clone(&configured_shortcuts);
 
         tauri::async_runtime::spawn(async move {
             let callback = |request: &Request, response: Response| {
@@ -351,6 +487,54 @@ async fn run_local_bridge(
                                 Ok(BrowserMessage::ConfigureShortcuts {
                                     shortcuts,
                                 }) => {
+                                    let configured = match build_configured_shortcuts(&shortcuts) {
+                                        Ok(configured) => configured,
+
+                                        Err(error) => {
+                                            eprintln!(
+                                                "Shortcut configuration rejected: {error}"
+                                            );
+                                            continue;
+                                        }
+                                    };
+
+                                    println!(
+                                        "Validated {} configured shortcut(s)",
+                                        configured.len()
+                                    );
+
+                                    // A configuration change may never silently change
+                                    // active OS-level hotkeys. If currently ARMED, disable
+                                    // the old configuration first.
+                                    if hotkeys_enabled_for_connection.load(Ordering::SeqCst) {
+                                        disable_hotkeys(
+                                            &app_for_connection,
+                                            &hotkeys_enabled_for_connection,
+                                            &configured_shortcuts_for_connection,
+                                        );
+
+                                        let _ = hotkeys_item_for_connection
+                                            .set_text("Hotkeys: Disabled");
+
+                                        println!(
+                                            "Hotkeys disabled because shortcut configuration changed"
+                                        );
+                                    }
+
+                                    match configured_shortcuts_for_connection.lock() {
+                                        Ok(mut current_configuration) => {
+                                            *current_configuration = configured;
+                                        }
+
+                                        Err(error) => {
+                                            eprintln!(
+                                                "Failed to store shortcut configuration: {error}"
+                                            );
+                                            continue;
+                                        }
+                                    }
+
+                                    println!("Shortcut configuration stored");
                                     println!(
                                         "Shortcut configuration received from {address}:"
                                     );
@@ -453,6 +637,7 @@ async fn run_local_bridge(
             disable_hotkeys(
                 &app_for_connection,
                 &hotkeys_enabled_for_connection,
+                &configured_shortcuts_for_connection,
             );
 
             let _ =
@@ -475,6 +660,8 @@ fn generate_pairing_code() -> String {
 pub fn run() {
     let hotkeys_enabled = Arc::new(AtomicBool::new(false));
     let connected = Arc::new(AtomicBool::new(false));
+    let configured_shortcuts =
+        Arc::new(Mutex::new(Vec::<ConfiguredShortcut>::new()));
     let active_intent_sender = Arc::new(Mutex::new(
         None::<tokio::sync::mpsc::UnboundedSender<InputIntent>>,
     ));
@@ -483,6 +670,8 @@ pub fn run() {
 
     let hotkeys_enabled_for_shortcuts =
         Arc::clone(&hotkeys_enabled);
+    let configured_shortcuts_for_handler =
+        Arc::clone(&configured_shortcuts);
 
     let active_intent_sender_for_shortcuts =
         Arc::clone(&active_intent_sender);
@@ -507,43 +696,60 @@ pub fn run() {
                     return;
                 }
 
-                for (registered_shortcut, intent) in shortcuts() {
-                    if shortcut != &registered_shortcut {
-                        continue;
-                    }
+                let intent = {
+                let configured = match configured_shortcuts_for_handler.lock() {
+                    Ok(configured) => configured,
 
-                    let sender = match active_intent_sender_for_shortcuts.lock() {
-                        Ok(sender) => sender,
-                        Err(error) => {
-                            eprintln!(
-                                "Failed to access active Companion session: {error}"
-                            );
-                            return;
-                        }
-                    };
-
-                    let Some(sender) = sender.as_ref() else {
+                    Err(error) => {
                         eprintln!(
-                            "Input intent dropped: no authenticated browser connection"
-                        );
-                        return;
-                    };
-
-                    if let Err(error) = sender.send(intent) {
-                        eprintln!(
-                            "Failed to queue input intent {}: {error}",
-                            intent.as_str()
+                            "Failed to access configured shortcuts: {error}"
                         );
                         return;
                     }
+                };
 
-                    println!(
-                        "Input intent queued: {}",
-                        intent.as_str()
+                configured
+                    .iter()
+                    .find(|configured_shortcut| {
+                        shortcut == &configured_shortcut.shortcut
+                    })
+                    .map(|configured_shortcut| configured_shortcut.intent)
+            };
+
+            let Some(intent) = intent else {
+                return;
+            };
+
+            let sender = match active_intent_sender_for_shortcuts.lock() {
+                Ok(sender) => sender,
+
+                Err(error) => {
+                    eprintln!(
+                        "Failed to access active Companion session: {error}"
                     );
-
-                    break;
+                    return;
                 }
+            };
+
+            let Some(sender) = sender.as_ref() else {
+                eprintln!(
+                    "Input intent dropped: no authenticated browser connection"
+                );
+                return;
+            };
+
+            if let Err(error) = sender.send(intent) {
+                eprintln!(
+                    "Failed to queue input intent {}: {error}",
+                    intent.as_str()
+                );
+                return;
+            }
+
+            println!(
+                "Input intent queued: {}",
+                intent.as_str()
+            );
             })
                 .build(),
         )
@@ -594,6 +800,9 @@ pub fn run() {
                 let app_for_bridge =
                     app.handle().clone();
 
+                let configured_shortcuts_for_bridge =
+                    Arc::clone(&configured_shortcuts);
+
                 tauri::async_runtime::spawn(
                     run_local_bridge(
                         app_for_bridge,
@@ -602,6 +811,7 @@ pub fn run() {
                         hotkeys_enabled_for_bridge,
                         hotkeys_item_for_bridge,
                         active_intent_sender_for_bridge,
+                        configured_shortcuts_for_bridge,
                     )
                 );
 
@@ -612,6 +822,8 @@ pub fn run() {
             let hotkeys_item_for_menu = hotkeys_item.clone();
             let pairing_code_for_menu = Arc::clone(&pairing_code);
             let connected_for_menu = Arc::clone(&connected);
+            let configured_shortcuts_for_menu =
+                Arc::clone(&configured_shortcuts);
 
             TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
@@ -665,9 +877,21 @@ pub fn run() {
                                 // Disable all configured hotkeys.
                                 let mut unregister_failed = false;
 
-                                for (shortcut, _) in shortcuts() {
-                                    if let Err(error) =
-                                        app.global_shortcut().unregister(shortcut)
+                                let configured = match configured_shortcuts_for_menu.lock() {
+                                    Ok(configured) => configured,
+
+                                    Err(error) => {
+                                        eprintln!(
+                                            "Failed to access configured shortcuts: {error}"
+                                        );
+                                        return;
+                                    }
+                                };
+
+                                for configured_shortcut in configured.iter() {
+                                    if let Err(error) = app
+                                        .global_shortcut()
+                                        .unregister(configured_shortcut.shortcut)
                                     {
                                         eprintln!(
                                             "Failed to unregister hotkey: {error}"
@@ -695,20 +919,40 @@ pub fn run() {
                                 // Register the configured hotkeys one by one.
                                 // Keep track of successful registrations so we can
                                 // roll them back if a later registration fails.
+                                let configured = match configured_shortcuts_for_menu.lock() {
+                                    Ok(configured) => configured,
+
+                                    Err(error) => {
+                                        eprintln!(
+                                            "Failed to access configured shortcuts: {error}"
+                                        );
+                                        return;
+                                    }
+                                };
+
+                                if configured.is_empty() {
+                                    println!(
+                                        "Hotkeys cannot be enabled: no shortcuts configured"
+                                    );
+                                    return;
+                                }
                                 let mut registered_shortcuts = Vec::new();
                                 let mut registration_error = None;
 
-                                for (shortcut, _) in shortcuts() {
-                                    match app.global_shortcut().register(shortcut) {
-                                        Ok(_) => {
-                                            registered_shortcuts.push(shortcut);
-                                        }
-                                        Err(error) => {
-                                            registration_error = Some(error);
-                                            break;
-                                        }
+                                for configured_shortcut in configured.iter() {
+                                let shortcut = configured_shortcut.shortcut;
+
+                                match app.global_shortcut().register(shortcut) {
+                                    Ok(_) => {
+                                        registered_shortcuts.push(shortcut);
+                                    }
+
+                                    Err(error) => {
+                                        registration_error = Some(error);
+                                        break;
                                     }
                                 }
+                            }
 
                                 if let Some(error) = registration_error {
                                     eprintln!(

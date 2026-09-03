@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 const COMPANION_BRIDGE_URL = "ws://127.0.0.1:38471";
 
@@ -16,9 +16,57 @@ type Props = {
   shortcuts: CompanionShortcuts;
 };
 
+function sendShortcutConfiguration(
+  websocket: WebSocket,
+  shortcuts: CompanionShortcuts
+) {
+  websocket.send(
+    JSON.stringify({
+      type: "configure_shortcuts",
+      shortcuts: {
+        start_split_finish: shortcuts.startSplitFinish,
+        pause_resume: shortcuts.pauseResume,
+        undo_split: shortcuts.undoSplit,
+        skip_split: shortcuts.skipSplit,
+        reset: shortcuts.reset,
+      },
+    })
+  );
+}
+
 export default function CompanionPairingClient({
-    shortcuts,
-  }: Props) {
+  shortcuts,
+}: Props) {
+  const websocketRef = useRef<WebSocket | null>(null);
+  const pairedRef = useRef(false);
+  const shortcutsRef = useRef(shortcuts);
+
+  useEffect(() => {
+  shortcutsRef.current = shortcuts;
+
+  const websocket = websocketRef.current;
+
+    if (
+      !pairedRef.current ||
+      !websocket ||
+      websocket.readyState !== WebSocket.OPEN
+    ) {
+      return;
+    }
+
+    sendShortcutConfiguration(websocket, shortcuts);
+
+    console.log(
+      "Updated shortcut configuration sent to TFDSpeedrun Companion."
+    );
+  }, [
+    shortcuts.startSplitFinish,
+    shortcuts.pauseResume,
+    shortcuts.undoSplit,
+    shortcuts.skipSplit,
+    shortcuts.reset,
+  ]);
+
   useEffect(() => {
     const hash = window.location.hash;
 
@@ -43,6 +91,7 @@ export default function CompanionPairingClient({
     }
 
     const websocket = new WebSocket(COMPANION_BRIDGE_URL);
+    websocketRef.current = websocket;
 
     websocket.onopen = () => {
       websocket.send(pairingCode);
@@ -50,19 +99,17 @@ export default function CompanionPairingClient({
 
     websocket.onmessage = (event) => {
       if (event.data === "pairing_ok") {
+        pairedRef.current = true;
+
         console.log("TFDSpeedrun Companion connected.");
 
-        websocket.send(
-          JSON.stringify({
-            type: "configure_shortcuts",
-            shortcuts: {
-              start_split_finish: shortcuts.startSplitFinish,
-              pause_resume: shortcuts.pauseResume,
-              undo_split: shortcuts.undoSplit,
-              skip_split: shortcuts.skipSplit,
-              reset: shortcuts.reset,
-            },
-          })
+        sendShortcutConfiguration(
+          websocket,
+          shortcutsRef.current
+        );
+
+        console.log(
+          "Initial shortcut configuration sent to TFDSpeedrun Companion."
         );
 
         return;
@@ -105,10 +152,22 @@ export default function CompanionPairingClient({
     };
 
     websocket.onclose = () => {
+      pairedRef.current = false;
+
+      if (websocketRef.current === websocket) {
+        websocketRef.current = null;
+      }
+
       console.log("TFDSpeedrun Companion disconnected.");
     };
 
     return () => {
+      pairedRef.current = false;
+
+      if (websocketRef.current === websocket) {
+        websocketRef.current = null;
+      }
+
       websocket.close();
     };
   }, []);
