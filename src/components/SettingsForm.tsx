@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from "react";
 import { updateSettings, updateShortcuts } from "@/app/actions/settings";
-import { exportCsv } from "@/app/actions/export";
 import { ShortcutInput } from "@/components/ShortcutInput";
 import { FONT_OPTIONS } from "@/lib/fonts";
 import type { UserSettings } from "@/lib/database.types";
@@ -1150,48 +1149,6 @@ const previewAppearance = {
 
       </SettingSection>
 
-      <section>
-        <h2 className="text-lg font-medium">Export</h2>
-        <button
-          type="button"
-          disabled={pending}
-          className="mt-3 rounded-lg border border-zinc-700 px-4 py-2 text-sm"
-          onClick={() =>
-            startTransition(async () => {
-              const result = await exportCsv();
-
-              if (result.error || !result.csv) {
-                setMessage({
-                  type: "error",
-                  text: result.error ?? "Export failed.",
-                });
-
-                return;
-              }
-
-              const blob = new Blob([result.csv], {
-                type: "text/csv",
-              });
-
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement("a");
-
-              a.href = url;
-              a.download = "tfd-speedrun-export.csv";
-              a.click();
-
-              URL.revokeObjectURL(url);
-
-              setMessage({
-                type: "success",
-                text: "CSV downloaded.",
-              });
-            })
-          }
-          >
-            Download all splits as CSV
-        </button>
-      </section>
       {message && (
         <p
           role={message.type === "error" ? "alert" : undefined}
