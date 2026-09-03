@@ -1082,7 +1082,7 @@ const previewAppearance = {
             }
           />
          </div>
-          <div className="mt-4 flex justify-end border-t border-zinc-800 pt-4">
+          <div className="mt-4 flex justify-end pt-4">
           <button
             type="submit"
             className="
