@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { loadCategoryBundle } from "@/lib/load-category";
 import RunHistoryTable from "@/components/RunHistoryTable";
+import { RunDataExport } from "@/components/RunDataExport";
 
 export default async function HistoryPage({
   params,
@@ -33,19 +34,32 @@ export default async function HistoryPage({
       </Link>
 
       <h1 className="mt-4 text-2xl font-semibold">
-        Run history
+        Insights
       </h1>
 
-      <p className="text-sm text-zinc-400">
-        Read-only times. Delete a run if it should not count.
-      </p>
+      <section className="mt-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-zinc-100">
+              Run History
+            </h2>
 
-      <RunHistoryTable
-        runs={completed}
-        sections={bundle.sections}
-        categoryId={categoryId}
-        highlightRunId={highlight}
-      />
+            <p className="mt-1 text-sm text-zinc-400">
+              Read-only times. Delete a run if it should not count.
+            </p>
+          </div>
+
+          <RunDataExport />
+        </div>
+
+        <RunHistoryTable
+          runs={completed}
+          sections={bundle.sections}
+          categoryId={categoryId}
+          highlightRunId={highlight}
+        />
+      </section>
+  
     </main>
   );
 }

@@ -22,7 +22,7 @@ export default async function CategoryPage({
           Setup
         </Link>
         <Link href={`/categories/${categoryId}/history`} className="hover:text-white">
-          History
+          Insights
         </Link>
         <Link href={`/overlay/${categoryId}`} className="hover:text-white">
           OBS overlay
