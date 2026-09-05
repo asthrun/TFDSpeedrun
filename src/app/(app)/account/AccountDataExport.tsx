@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { exportCsv } from "@/app/actions/export";
+import { exportAccountData } from "@/app/actions/export";
 
 export function AccountDataExport() {
   const [isExporting, setIsExporting] = useState(false);
@@ -12,18 +12,18 @@ export function AccountDataExport() {
     setError(null);
 
     try {
-      const result = await exportCsv();
+      const result = await exportAccountData();
 
-      if (result.error || !result.csv) {
+      if (result.error || !result.json) {
         setError(
           result.error ??
-            "We couldn't export your data. Please try again."
+            "We couldn't export your account data. Please try again."
         );
         return;
       }
 
-      const blob = new Blob([result.csv], {
-        type: "text/csv;charset=utf-8",
+      const blob = new Blob([result.json], {
+        type: "application/json;charset=utf-8",
       });
 
       const url = URL.createObjectURL(blob);
@@ -32,7 +32,7 @@ export function AccountDataExport() {
       const date = new Date().toISOString().slice(0, 10);
 
       link.href = url;
-      link.download = `tfdspeedrun-runs-${date}.csv`;
+      link.download = `tfdspeedrun-account-data-${date}.json`;
 
       document.body.appendChild(link);
       link.click();
@@ -40,10 +40,13 @@ export function AccountDataExport() {
 
       URL.revokeObjectURL(url);
     } catch (unexpectedError) {
-      console.error("Unexpected CSV export error:", unexpectedError);
+      console.error(
+        "Unexpected account data export error:",
+        unexpectedError
+      );
 
       setError(
-        "We couldn't export your data. Please try again."
+        "We couldn't export your account data. Please try again."
       );
     } finally {
       setIsExporting(false);
@@ -53,8 +56,9 @@ export function AccountDataExport() {
   return (
     <div className="mt-4">
       <p className="text-sm text-zinc-400">
-        Before deleting your account, you can download a copy of
-        your complete run history.
+        Download a copy of your TFDSpeedrun account data, including your
+        profile, settings, game profiles, categories, sections, custom
+        targets, runs, and splits.
       </p>
 
       <button
@@ -64,8 +68,8 @@ export function AccountDataExport() {
         className="mt-3 rounded-md border border-zinc-700 px-3 py-2 text-sm hover:bg-zinc-900 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {isExporting
-          ? "Preparing CSV..."
-          : "Download Run History CSV"}
+          ? "Preparing JSON..."
+          : "Download Account Data"}
       </button>
 
       {error && (

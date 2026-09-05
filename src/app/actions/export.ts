@@ -187,6 +187,125 @@ export async function exportCsv(): Promise<{
   };
 }
 
+export async function exportAccountData(): Promise<{
+  error: string | null;
+  json: string | null;
+}> {
+  const { supabase, user } = await requireUser();
+
+  const [
+    profileResult,
+    settingsResult,
+    gameProfilesResult,
+    categoriesResult,
+    sectionsResult,
+    customTargetSplitsResult,
+    runsResult,
+    runSplitsResult,
+  ] = await Promise.all([
+    supabase
+      .from("user_profiles")
+      .select("*")
+      .eq("user_id", user.id)
+      .maybeSingle(),
+
+    supabase
+      .from("user_settings")
+      .select("*")
+      .eq("user_id", user.id)
+      .maybeSingle(),
+
+    supabase
+      .from("game_profiles")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: true }),
+
+    supabase
+      .from("categories")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: true }),
+
+    supabase
+      .from("sections")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("category_id", { ascending: true })
+      .order("sort_order", { ascending: true }),
+
+    supabase
+      .from("custom_target_splits")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("category_id", { ascending: true }),
+
+    supabase
+      .from("runs")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("started_at", { ascending: true }),
+
+    supabase
+      .from("run_splits")
+      .select("*")
+      .eq("user_id", user.id),
+  ]);
+
+  const results = [
+    ["profile", profileResult.error],
+    ["settings", settingsResult.error],
+    ["game profiles", gameProfilesResult.error],
+    ["categories", categoriesResult.error],
+    ["sections", sectionsResult.error],
+    ["custom target splits", customTargetSplitsResult.error],
+    ["runs", runsResult.error],
+    ["run splits", runSplitsResult.error],
+  ] as const;
+
+  for (const [label, error] of results) {
+    if (error) {
+      console.error(`Failed to load ${label} for account export:`, error);
+
+      return {
+        error: "We couldn't export your account data. Please try again.",
+        json: null,
+      };
+    }
+  }
+
+  const exportData = {
+    export: {
+      format_version: 1,
+      service: "TFDSpeedrun",
+      exported_at: new Date().toISOString(),
+    },
+
+    account: {
+      user_id: user.id,
+      email: user.email ?? null,
+      created_at: user.created_at ?? null,
+    },
+
+    profile: profileResult.data ?? null,
+    settings: settingsResult.data ?? null,
+
+    speedrun_data: {
+      game_profiles: gameProfilesResult.data ?? [],
+      categories: categoriesResult.data ?? [],
+      sections: sectionsResult.data ?? [],
+      custom_target_splits: customTargetSplitsResult.data ?? [],
+      runs: runsResult.data ?? [],
+      run_splits: runSplitsResult.data ?? [],
+    },
+  };
+
+  return {
+    error: null,
+    json: JSON.stringify(exportData, null, 2),
+  };
+}
+
 function csv(value: string) {
   let safeValue = value;
 
