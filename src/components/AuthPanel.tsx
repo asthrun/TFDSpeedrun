@@ -119,6 +119,7 @@ export function AuthPanel({
             emailRedirectTo: `${siteUrl}/auth/callback?next=${encodeURIComponent(
               nextPath
             )}`,
+            shouldCreateUser: false,
           },
         });
 

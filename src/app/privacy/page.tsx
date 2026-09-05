@@ -75,6 +75,14 @@ export default function PrivacyPage() {
             <ul className="list-disc space-y-1 pl-6">
               <li>Your email address and TFDSpeedrun user ID.</li>
               <li>Your chosen username or display name.</li>
+              <li>
+                The version of the Terms of Service you accepted and the time at
+                which that acceptance was recorded.
+              </li>
+              <li>
+                The time at which you confirmed during registration that you were
+                at least 16 years old.
+              </li>
               <li>Your account and application settings.</li>
               <li>Game profiles, categories and sections you create.</li>
               <li>Custom target splits.</li>
@@ -104,6 +112,13 @@ export default function PrivacyPage() {
               speedrun data, calculating comparisons, providing exports and
               account management, and maintaining the security and technical
               integrity of the service.
+              <p>
+              TFDSpeedrun also records the version of the Terms of Service
+              accepted during registration, the time of that acceptance, and the
+              time of the user&apos;s 16+ confirmation. This information is kept
+              to record the terms under which the account was created and the
+              age-eligibility declaration made during registration.
+            </p>
             </p>
             <p>
               For processing objectively necessary to provide TFDSpeedrun, the
@@ -239,8 +254,9 @@ export default function PrivacyPage() {
               From the Account page, you can download a machine-readable JSON
               export containing TFDSpeedrun account and application data
               associated with your account, including profile information,
-              settings, game profiles, categories, sections, custom targets,
-              runs and splits.
+              settings, recorded Terms of Service and age-eligibility acceptance
+              information where available, game profiles, categories, sections,
+              custom targets, runs and splits.
             </p>
             <p>
               Authentication secrets and passwords are not included in this
@@ -347,7 +363,9 @@ export default function PrivacyPage() {
               TFDSpeedrun is not intended for people under 16 years of age.
               TFDSpeedrun does not require users to provide their date of birth.
               Users are instead required to confirm during registration that
-              they are at least 16 years old.
+              they are at least 16 years old. TFDSpeedrun records the time of
+              this confirmation but does not use it to determine or store the
+              user&apos;s exact age or date of birth.
             </p>
             <p>
               If TFDSpeedrun becomes aware that an account belongs to a person
