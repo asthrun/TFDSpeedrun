@@ -80,7 +80,7 @@ export default async function AccountPage() {
         />
       </section>
 
-      <section className="rounded-lg border border-zinc-800 p-5">
+       <section className="rounded-lg border border-zinc-800 p-5">
         <h2 className="text-lg font-semibold">Security</h2>
 
         <p className="mt-2 text-sm text-zinc-400">
@@ -88,6 +88,17 @@ export default async function AccountPage() {
         </p>
 
         <ChangePasswordForm />
+      </section>
+
+      <section className="rounded-lg border border-zinc-800 p-5">
+        <h2 className="text-lg font-semibold">Your Data</h2>
+
+        <p className="mt-2 text-sm text-zinc-400">
+          Download a copy of the data associated with your TFDSpeedrun
+          account.
+        </p>
+
+        <AccountDataExport />
       </section>
 
       <section className="rounded-lg border border-red-900/60 p-5">
@@ -98,10 +109,8 @@ export default async function AccountPage() {
         <p className="mt-2 text-sm text-zinc-400">
           Permanently delete your account and its associated data.
         </p>
-        <AccountDataExport />
+
         <DeleteAccountForm />
-        
-          Delete Account
       </section>
     </main>
   );
