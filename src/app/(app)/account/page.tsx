@@ -4,6 +4,7 @@ import { ChangeEmailForm } from "./ChangeEmailForm";
 import { ChangePasswordForm } from "./ChangePasswordForm";
 import { AccountDataExport } from "./AccountDataExport";
 import { DeleteAccountForm } from "./DeleteAccountForm";
+import { LegalNotice } from "@/components/LegalNotice";
 
 function maskEmail(email: string) {
   const [localPart, domain] = email.split("@");
@@ -99,6 +100,10 @@ export default async function AccountPage() {
       <section className="rounded-lg border border-zinc-800 p-5">
         <DeleteAccountForm />
       </section>
+      
+      <footer className="border-t border-zinc-800 pt-6">
+        <LegalNotice />
+      </footer>
     </main>
   );
 }

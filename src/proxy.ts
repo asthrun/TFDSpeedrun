@@ -8,6 +8,8 @@ const PUBLIC_PATHS = new Set([
   "/auth/callback",
   "/reset-password",
   "/email-confirmed",
+  "/privacy",
+  "/terms",
 ]);
 
 export async function proxy(request: NextRequest) {

@@ -125,6 +125,27 @@ export type Database = {
         }
         Relationships: []
       }
+      legal_acceptances: {
+        Row: {
+          age_confirmed_at: string
+          terms_accepted_at: string
+          terms_version: string
+          user_id: string
+        }
+        Insert: {
+          age_confirmed_at: string
+          terms_accepted_at: string
+          terms_version: string
+          user_id: string
+        }
+        Update: {
+          age_confirmed_at?: string
+          terms_accepted_at?: string
+          terms_version?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       run_splits: {
         Row: {
           run_id: string

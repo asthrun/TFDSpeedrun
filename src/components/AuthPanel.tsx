@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { LegalNotice } from "@/components/LegalNotice";
+import Link from "next/link";
+import { signUp } from "@/app/actions/auth";
 
 type Mode = "signin" | "signup" | "forgot";
 
@@ -16,6 +19,7 @@ export function AuthPanel({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [legalAccepted, setLegalAccepted] = useState(false);
 
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -36,47 +40,34 @@ export function AuthPanel({
 
     try {
       if (mode === "signup") {
-        const cleanUsername = username.trim();
+          const formData = new FormData();
 
-        if (cleanUsername.length < 2) {
-          setError("Username must be at least 2 characters.");
-          return;
-        }
+          formData.set("username", username);
+          formData.set("email", email);
+          formData.set("password", password);
+          formData.set("confirmPassword", confirmPassword);
 
-        if (cleanUsername.length > 50) {
-          setError("Username must be 50 characters or fewer.");
-          return;
-        }
+          if (legalAccepted) {
+            formData.set("legalAccepted", "on");
+          }
 
-        if (password !== confirmPassword) {
-          setError("Passwords do not match.");
-          return;
-        }
+          const result = await signUp({}, formData);
 
-        const { error: signError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              display_name: cleanUsername,
-            },
-            emailRedirectTo: `${siteUrl}/auth/callback?next=/email-confirmed`,
-          },
-        });
+          if (result.error) {
+            setError(result.error);
+            return;
+          }
 
-        if (signError) {
-          throw signError;
-        }
+          setMessage(
+            result.success ?? "Check your email to confirm your account."
+          );
 
-        setMessage(
-          "Check your email to confirm your account."
-        );
-
-        setUsername("");
-        setEmail("");
-        setPassword("");
-        setConfirmPassword("");
-      } else if (mode === "forgot") {
+          setUsername("");
+          setEmail("");
+          setPassword("");
+          setConfirmPassword("");
+          setLegalAccepted(false);
+        } else if (mode === "forgot") {
         const { error: resetError } =
           await supabase.auth.resetPasswordForEmail(email, {
             redirectTo: `${siteUrl}/auth/callback?next=/reset-password`,
@@ -153,11 +144,12 @@ export function AuthPanel({
     setMessage(null);
     setPassword("");
     setConfirmPassword("");
+    setLegalAccepted(false);
 
     if (nextMode !== "signup") {
       setUsername("");
     }
-  }
+  }                             
 
   return (
     <div className="mx-auto w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950 p-6">
@@ -238,6 +230,45 @@ export function AuthPanel({
           </label>
         )}
 
+        {mode === "signup" && (
+          <div className="grid gap-2 text-sm">
+            <label className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                checked={legalAccepted}
+                onChange={(e) => setLegalAccepted(e.target.checked)}
+                className="mt-1"
+              />
+
+              <span className="text-zinc-300">
+                I confirm that I am at least 16 years old and agree to the{" "}
+                <Link
+                  href="/terms"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline underline-offset-4 hover:text-zinc-100"
+                >
+                  Terms of Service
+                </Link>
+                .
+              </span>
+            </label>
+
+            <p className="text-xs leading-5 text-zinc-500">
+              By creating an account, you acknowledge that you have read the{" "}
+              <Link
+                href="/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-4 hover:text-zinc-300"
+              >
+                Privacy Policy
+              </Link>
+              .
+            </p>
+          </div>
+        )}
+
         {error && (
           <p className="text-sm text-red-400">{error}</p>
         )}
@@ -301,6 +332,9 @@ export function AuthPanel({
             Forgot password
           </button>
         )}
+      </div>
+       <div className="mt-6 border-t border-zinc-800 pt-4">
+        <LegalNotice />
       </div>
     </div>
   );

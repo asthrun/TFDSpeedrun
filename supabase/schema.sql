@@ -12,6 +12,7 @@ drop table if exists public.custom_target_splits cascade;
 drop table if exists public.sections cascade;
 drop table if exists public.categories cascade;
 drop table if exists public.game_profiles cascade;
+drop table if exists public.legal_acceptances cascade;
 drop table if exists public.user_profiles cascade;
 drop table if exists public.user_settings cascade;
 
@@ -91,32 +92,18 @@ create table public.user_profiles (
     )
 );
 
-create or replace function public.handle_new_user()
-returns trigger
-language plpgsql
-security definer
-set search_path = ''
-as $$
-begin
-  insert into public.user_profiles (
-    user_id,
-    display_name
-  )
-  values (
-    new.id,
-    nullif(trim(new.raw_user_meta_data ->> 'display_name'), '')
-  );
+create table public.legal_acceptances (
+  user_id uuid primary key
+    references auth.users (id)
+    on delete cascade,
 
-  return new;
-end;
-$$;
+  terms_version text not null,
+  terms_accepted_at timestamptz not null,
+  age_confirmed_at timestamptz not null,
 
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row
-  execute procedure public.handle_new_user();
-
- 
+  constraint legal_acceptances_terms_version_check
+    check (char_length(trim(terms_version)) > 0)
+);
 
 create table public.game_profiles (
   id uuid primary key default gen_random_uuid(),
@@ -591,28 +578,13 @@ create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 begin
   insert into public.user_settings (user_id)
   values (new.id)
   on conflict (user_id) do nothing;
 
-  insert into public.user_profiles (user_id)
-  values (new.id)
-  on conflict (user_id) do nothing;
-
-  return new;
-end;
-$$;
-
-create or replace function public.handle_new_user()
-returns trigger
-language plpgsql
-security definer
-set search_path = ''
-as $$
-begin
   insert into public.user_profiles (
     user_id,
     display_name
@@ -620,6 +592,66 @@ begin
   values (
     new.id,
     nullif(trim(new.raw_user_meta_data ->> 'display_name'), '')
+  )
+  on conflict (user_id) do nothing;
+
+  return new;
+end;
+$$;
+
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row
+  execute procedure public.handle_new_user();
+
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  accepted_terms_version text;
+  age_confirmed boolean;
+begin
+  accepted_terms_version :=
+    nullif(trim(new.raw_user_meta_data ->> 'terms_version'), '');
+
+  age_confirmed :=
+    coalesce(
+      (new.raw_user_meta_data ->> 'age_confirmed')::boolean,
+      false
+    );
+
+  if accepted_terms_version <> '1.0' or not age_confirmed then
+    raise exception 'Required registration terms were not accepted.';
+  end if;
+
+  insert into public.user_settings (user_id)
+  values (new.id)
+  on conflict (user_id) do nothing;
+
+  insert into public.user_profiles (
+    user_id,
+    display_name
+  )
+  values (
+    new.id,
+    nullif(trim(new.raw_user_meta_data ->> 'display_name'), '')
+  )
+  on conflict (user_id) do nothing;
+
+  insert into public.legal_acceptances (
+    user_id,
+    terms_version,
+    terms_accepted_at,
+    age_confirmed_at
+  )
+  values (
+    new.id,
+    accepted_terms_version,
+    now(),
+    now()
   );
 
   return new;
