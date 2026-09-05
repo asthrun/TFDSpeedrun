@@ -90,26 +90,13 @@ export default async function AccountPage() {
         <ChangePasswordForm />
       </section>
 
-      <section className="rounded-lg border border-zinc-800 p-5">
+        <section className="rounded-lg border border-zinc-800 p-5">
         <h2 className="text-lg font-semibold">Your Data</h2>
-
-        <p className="mt-2 text-sm text-zinc-400">
-          Download a copy of the data associated with your TFDSpeedrun
-          account.
-        </p>
 
         <AccountDataExport />
       </section>
 
-      <section className="rounded-lg border border-red-900/60 p-5">
-        <h2 className="text-lg font-semibold text-red-400">
-          Danger Zone
-        </h2>
-
-        <p className="mt-2 text-sm text-zinc-400">
-          Permanently delete your account and its associated data.
-        </p>
-
+      <section className="rounded-lg border border-zinc-800 p-5">
         <DeleteAccountForm />
       </section>
     </main>
