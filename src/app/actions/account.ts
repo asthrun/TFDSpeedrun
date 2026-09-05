@@ -113,7 +113,7 @@ export async function changeEmail(
     };
   }
 
-  const { error } = await supabase.auth.updateUser({
+   const { error } = await supabase.auth.updateUser({
     email,
   });
 
@@ -186,8 +186,73 @@ export async function changePassword(
     };
   }
 
+    const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user?.email) {
+    console.error(
+      "Cannot change password because authenticated user has no email."
+    );
+
+    return {
+      error: "Unable to verify your account. Please try again.",
+    };
+  }
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!url || !anonKey) {
+    console.error(
+      "Missing Supabase public configuration during password change."
+    );
+
+    return {
+      error: "Unable to change your password. Please try again.",
+    };
+  }
+
+  /*
+   * Verify the current password with a separate Supabase client.
+   * This client does not persist or share the user's browser session.
+   */
+  const verificationClient = createSupabaseClient(
+    url,
+    anonKey,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+        detectSessionInUrl: false,
+      },
+    }
+  );
+
+  const {
+    data: verificationData,
+    error: verificationError,
+  } = await verificationClient.auth.signInWithPassword({
+    email: user.email,
+    password: currentPassword,
+  });
+
+  if (
+    verificationError ||
+    !verificationData.user ||
+    verificationData.user.id !== user.id
+  ) {
+    console.error(
+      "Password change verification failed:",
+      verificationError
+    );
+
+    return {
+      error: "Current password is incorrect.",
+    };
+  }
+
   const { error } = await supabase.auth.updateUser({
-    current_password: currentPassword,
     password: newPassword,
   });
 
@@ -195,8 +260,7 @@ export async function changePassword(
     console.error("Failed to change password:", error);
 
     return {
-      error:
-        "Unable to change your password. Check your current password and try again.",
+      error: "Unable to change your password. Please try again.",
     };
   }
 
