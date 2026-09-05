@@ -194,74 +194,82 @@ export async function exportAccountData(): Promise<{
   const { supabase, user } = await requireUser();
 
   const [
-    profileResult,
-    settingsResult,
-    gameProfilesResult,
-    categoriesResult,
-    sectionsResult,
-    customTargetSplitsResult,
-    runsResult,
-    runSplitsResult,
-  ] = await Promise.all([
-    supabase
-      .from("user_profiles")
-      .select("*")
-      .eq("user_id", user.id)
-      .maybeSingle(),
+  profileResult,
+  settingsResult,
+  gameProfilesResult,
+  categoriesResult,
+  sectionsResult,
+  customTargetSplitsResult,
+  runsResult,
+  runSplitsResult,
+  legalAcceptanceResult,
+] = await Promise.all([
+  supabase
+    .from("user_profiles")
+    .select("*")
+    .eq("user_id", user.id)
+    .maybeSingle(),
 
-    supabase
-      .from("user_settings")
-      .select("*")
-      .eq("user_id", user.id)
-      .maybeSingle(),
+  supabase
+    .from("user_settings")
+    .select("*")
+    .eq("user_id", user.id)
+    .maybeSingle(),
 
-    supabase
-      .from("game_profiles")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: true }),
+  supabase
+    .from("game_profiles")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: true }),
 
-    supabase
-      .from("categories")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: true }),
+  supabase
+    .from("categories")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: true }),
 
-    supabase
-      .from("sections")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("category_id", { ascending: true })
-      .order("sort_order", { ascending: true }),
+  supabase
+    .from("sections")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("category_id", { ascending: true })
+    .order("sort_order", { ascending: true }),
 
-    supabase
-      .from("custom_target_splits")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("category_id", { ascending: true }),
+  supabase
+    .from("custom_target_splits")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("category_id", { ascending: true }),
 
-    supabase
-      .from("runs")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("started_at", { ascending: true }),
+  supabase
+    .from("runs")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("started_at", { ascending: true }),
 
-    supabase
-      .from("run_splits")
-      .select("*")
-      .eq("user_id", user.id),
-  ]);
+  supabase
+    .from("run_splits")
+    .select("*")
+    .eq("user_id", user.id),
 
-  const results = [
-    ["profile", profileResult.error],
-    ["settings", settingsResult.error],
-    ["game profiles", gameProfilesResult.error],
-    ["categories", categoriesResult.error],
-    ["sections", sectionsResult.error],
-    ["custom target splits", customTargetSplitsResult.error],
-    ["runs", runsResult.error],
-    ["run splits", runSplitsResult.error],
-  ] as const;
+  supabase
+    .from("legal_acceptances")
+    .select("terms_version, terms_accepted_at, age_confirmed_at")
+    .eq("user_id", user.id)
+    .maybeSingle(),
+]);
+
+ const results = [
+  ["profile", profileResult.error],
+  ["settings", settingsResult.error],
+  ["game profiles", gameProfilesResult.error],
+  ["categories", categoriesResult.error],
+  ["sections", sectionsResult.error],
+  ["custom target splits", customTargetSplitsResult.error],
+  ["runs", runsResult.error],
+  ["run splits", runSplitsResult.error],
+  ["legal acceptance", legalAcceptanceResult.error],
+] as const;
 
   for (const [label, error] of results) {
     if (error) {
@@ -285,6 +293,7 @@ export async function exportAccountData(): Promise<{
       user_id: user.id,
       email: user.email ?? null,
       created_at: user.created_at ?? null,
+      legal_acceptance: legalAcceptanceResult.data,
     },
 
     profile: profileResult.data ?? null,
